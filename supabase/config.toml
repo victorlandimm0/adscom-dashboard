@@ -1,0 +1,47 @@
+# Configuração exclusiva do ambiente LOCAL de desenvolvimento/testes.
+# Não representa nem altera a configuração do projeto remoto.
+project_id = "adscom-dashboard"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+# Padrão da CLI. Confirmar a versão remota antes de homologar migrations.
+major_version = 17
+
+[db.migrations]
+enabled = true
+schema_paths = []
+
+[db.seed]
+enabled = false
+sql_paths = []
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = []
+# Apenas para os usuários descartáveis dos testes locais, sem interface de cadastro.
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+enable_confirmations = false
+
+[realtime]
+enabled = false
+
+[storage]
+enabled = false
+
+[analytics]
+enabled = false
+
+[edge_runtime]
+enabled = false
