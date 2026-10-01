@@ -58,11 +58,13 @@ try {
   const users = {};
   for (const name of ["a", "b", "multi", "none", "admin", "admin2"]) {
     const client = newClient();
-    const result = await client.auth.signUp({ email: `rls-${runId}-${name}@example.test`, password: `${randomUUID()}aA!9` });
+    const email = `rls-${runId}-${name}@example.test`;
+    const password = `${randomUUID()}aA!9`;
+    const result = await client.auth.signUp({ email, password });
     assert.equal(result.error, null, "Criação de usuário local falhou");
     if (result.data.user) userIds.push(result.data.user.id);
     assert.ok(result.data.session, "Teste exige confirmação de e-mail desativada somente no Auth local");
-    users[name] = { id: result.data.user.id, client };
+    users[name] = { id: result.data.user.id, client, email, password };
   }
   const id = (name) => uuidLiteral(users[name].id);
   sql(`begin;
@@ -72,9 +74,34 @@ try {
       (${uuidLiteral(orgA)},${id("multi")}),(${uuidLiteral(orgB)},${id("multi")});
     insert into public.user_global_roles(user_id,role) values (${id("admin")},'ADMIN_ADSCOM'),(${id("admin2")},'ADMIN_ADSCOM');
     commit;`);
+  if (process.argv.includes("--dashboard")) {
+    const { testDashboard } = await import("./test-dashboard-http.mjs");
+    await testDashboard({ users, orgA, orgB, key, sql });
+  }
   const a = users.a.client;
   const admin = users.admin.client;
   const tokenBefore = (await a.auth.getSession()).data.session.access_token;
+  // Exercita as mesmas leituras de papel, vínculo e empresa usadas por /app.
+  for (const [name, expected] of [["a", [orgA]], ["b", [orgB]], ["multi", [orgA, orgB]], ["none", []], ["admin", [orgA, orgB]]]) {
+    const { client, id: userId } = users[name];
+    const roles = success(await client.from("user_global_roles").select("role").eq("user_id", userId).eq("role", "ADMIN_ADSCOM"));
+    const memberships = success(await client.from("organization_members").select("organization_id").eq("user_id", userId));
+    const isAdmin = roles.length > 0;
+    assert.equal(isAdmin, name === "admin");
+    if (isAdmin) assert.deepEqual(memberships, []);
+    let companies = [];
+    if (isAdmin || memberships.length > 0) {
+      let query = client.from("organizations").select("id, name").order("name").order("id");
+      if (!isAdmin) query = query.in("id", memberships.map(member => member.organization_id));
+      companies = success(await query);
+    }
+    assert.deepEqual(companies.map(company => company.id).sort(), [...expected].sort());
+    assert.ok(companies.every(company => company.name.startsWith(`TESTE API ${runId}`)));
+  }
+  passed("Etapa 05: descoberta de empresas para A, B, múltiplos, sem vínculo e admin sem membership");
+  assert.deepEqual(success(await users.b.client.from("organizations").select("id, name").eq("id", orgA)), []);
+  assert.deepEqual(success(await users.none.client.from("organizations").select("id, name").eq("id", orgA)), []);
+  passed("Etapa 05: UUID direto de A negado para B e usuário sem vínculo");
   assert.deepEqual(success(await a.from("organizations").select("id")).map(r => r.id), [orgA]); passed("A: cliente A vê somente A");
   assert.deepEqual(success(await a.from("organizations").select("id").eq("id", orgB)), []); passed("B: UUID de B invisível");
   forbidden(await a.from("organizations").insert({ name: `TESTE API ${runId} negado` })); passed("C: cliente não cria empresa");

@@ -1,71 +1,42 @@
 # Plano do MVP — incrementos verificáveis
 
-## Etapa 01 — arquitetura (concluída)
+## Fundação concluída até a Etapa 08
 
-Inspeção do repositório, proposta de arquitetura, modelo mínimo, regras para agentes e roteiro. Aceite: documentação distingue claramente decisões propostas, funcionalidades futuras e estado implementado. Nenhuma dependência ou serviço externo é necessário para ler esta entrega.
+| Etapa | Entrega implementada | Evidência e limites |
+| --- | --- | --- |
+| 01 — arquitetura | Uma aplicação/banco, papéis, isolamento e roteiro | [Arquitetura](arquitetura.md) distingue implementação e futuro |
+| 02 — bootstrap | Next.js, TypeScript estrito, Tailwind, versões fixas e lockfile | Instalação e execução validadas no [histórico](historico-validacoes.md) |
+| 03 — banco/RLS | organizations, organization_members, user_global_roles; oito policies e grants mínimos | Migration aplicada localmente; 48 asserções originais, ampliadas para 52 na Etapa 05; SQL e API com usuários comuns |
+| 04 — autenticação | E-mail/senha, sessão SSR, proteção no servidor, login/logout | Testes locais de navegador na entrega e regressão HTTP posterior; [autenticação](autenticacao.md) |
+| 05 — multiempresa | Empresas autorizadas por sessão, vínculo/papel e RLS | 52 asserções e HTTP; usuário informou revisão manual remota de admin/clientes A/B |
+| 06 — dashboard | Shell, seis placeholders, seleção e contexto de empresa | Cookie de sessão revalidado; empresa única automática; [dashboard](dashboard.md) |
+| 07 — administração | Criar/listar empresas, vincular Auth existente por UUID, remover vínculo confirmado, abrir Dashboard | Testes HTTP administrativos e revisão manual confirmada pelo usuário; [administração](administracao.md) |
+| 08 — consolidação | Auditoria do código/Git, documentação atualizada e repetição da suíte disponível | Resultados desta execução e prontidão no [relatório](consolidacao.md); sem commit/push |
 
-## Etapa 02 — bootstrap da aplicação (implementado; validações no README)
+A revisão manual informada pelo usuário cobre acesso administrativo, cadastro, abertura no Dashboard, vínculo, visibilidade para cliente, seleção múltipla e refresh, remoção preservando Auth/outros vínculos, revogação com cookie antigo e seleção automática para empresa única. O ambiente dessa revisão da Etapa 07 não foi especificado. Não confundir com testes remotos do agente: suas execuções foram exclusivamente locais.
 
-Criar Next.js com TypeScript estrito e Tailwind, tela inicial simples sem indicadores fictícios e .gitignore. Criar .env.example somente quando houver variáveis necessárias; o bootstrap não exige nenhuma. Fixar versões compatíveis e lockfile; documentar Node e npm. Adicionar apenas dependências exigidas pelo incremento.
+Isolamento validado para as tabelas atuais não autoriza futuras tabelas sem RLS/testes próprios. Os critérios permanecem: A não vê B mesmo por UUID/API, anônimo sem acesso, cliente não escreve vínculos/papéis, admin usa sessão normal e revogações valem na próxima consulta. A preferência de empresa não prova autorização.
 
-Aceite: instalação com npm ci, typecheck, lint, build e inicialização de produção funcionam. Não usar o build como substituto de lint ou typecheck. Documentar os comandos reais no README.
+## Próximos incrementos — não iniciados
 
-## Etapa 03 — banco e barreira multi-tenant (validada localmente; aguardando revisão humana)
+A Etapa 09 exige definição e autorização próprias. Escolher o primeiro módulo de valor com o responsável pelo produto (por exemplo recomendações manuais ou piloto NFC); não implementar ambos automaticamente. Presença, Avaliações, NFC, Relatórios e Configurações continuam apenas páginas placeholder. Google, Meta, pagamentos, IA, CRM e demais integrações permanecem futuros.
 
-Estado atual: clientes Supabase, configuração CLI local, migration e testes SQL/HTTP preparados. Docker instalado; migration aplicada localmente e 48 asserções pgTAP mais cenários A–I HTTP aprovados em 27/09/2026. Fixtures removidas. Nenhuma aplicação remota ocorreu. O desenvolvedor autorizou posteriormente a Etapa 04 mínima. Procedimentos e resultados em [Supabase](supabase.md).
+Cadastro de usuários Auth, convites, recuperação de senha, perfis, edição/exclusão de empresas e concessão de papel global pela aplicação também não estão implementados. Devem receber escopo e testes próprios quando necessários.
 
-Escopo: criar migrações de organizations, organization_members e user_global_roles com constraints, índices, grants e RLS. Definir procedimento controlado do primeiro administrador e usar ambiente de desenvolvimento. Dados de teste devem estar separados de produção.
+## Preparação de produção — futura
 
-Aceite obrigatório, com empresas A/B e identidades isoladas:
+Validar plano Hostinger, Node 24, instalação/build/start, processo persistente, porta, HTTPS, domínio e variáveis. Separar ambientes, confirmar histórico/schema remoto antes de migrations e definir backups/restauração e recuperação de falhas. O agente não realizou deploy, provisionamento ou alteração remota.
 
-- Cliente A vê A e não vê B por URL, consulta direta, ID conhecido ou API Supabase.
-- Cliente B não vê A; usuário com dois vínculos vê ambas; usuário sem vínculo não vê nenhuma.
-- Anônimo não lê nem escreve dados privados.
-- Cliente não cria vínculos, não muda seu papel e não concede papel global.
-- INSERT/UPDATE/DELETE indevidos falham, inclusive troca de organization_id.
-- Administrador consulta todas as empresas e gerencia vínculos conforme a matriz; não promove outros administradores pela API comum.
-- Revogar vínculo ou papel retira acesso na consulta seguinte, mesmo com JWT ainda válido.
-- Policies de membros e papéis funcionam sem recursão; migrações funcionam em banco vazio.
+Aceite futuro: smoke test de login e isolamento em homologação, ausência de segredos no bundle, deploy reproduzível e recuperação verificada antes de dados reais. Não presumir suporte ou backups do plano contratado.
 
-Executar operações como authenticated/anon com JWTs reais de teste ou contexto de autenticação corretamente simulado no PostgreSQL. Testes com service_role/proprietário não demonstram isolamento. Complementar testes SQL com requisições reais à API antes de expor o ambiente.
+## Decisões pendentes
 
-## Etapa 04 — autenticação mínima (implementada; aguardando revisão)
-
-Escopo aprovado: e-mail/senha, sessão SSR, /login, /app simples protegida no servidor e logout. Sem callback, recuperação de senha, cadastro público, seleção de empresa ou diferenciação visual por papel. A previsão mais ampla da Etapa 01 foi reduzida pelo pedido explícito da Etapa 04.
-
-Lint, typecheck, build e sete testes unitários passaram. O fluxo foi exercitado em navegador contra produção local, incluindo login inválido/válido, persistência, renovação, cookie adulterado e logout. Detalhes em [autenticação](autenticacao.md). Migrations, policies e testes de RLS permanecem inalterados. Nenhuma operação remota foi realizada.
-
-Parar para revisão humana antes de novos módulos. Recuperação, convites, seleção de empresa e autorização de rotas administrativas exigem escopo e testes próprios.
-
-## Etapa 05 — operação administrativa mínima
-
-Cadastro/edição de empresas e convite/vínculo de usuários pelo ADMIN_ADSCOM. Página do cliente exibe apenas identificação da empresa e estado vazio honesto.
-
-Aceite: um administrador provisiona dois clientes; cada cliente acessa apenas suas empresas. Convite repetido, falha na criação do vínculo e tentativa de autoelevação têm tratamento verificável. Nenhuma chave privilegiada chega ao navegador ou logs.
-
-## Etapa 06 — primeiro módulo de valor
-
-Escolher com o responsável pelo produto um incremento: recomendações manuais ou piloto NFC. Não implementar os dois automaticamente. Só então acrescentar tabelas específicas.
-
-Se NFC for escolhido: cadastrar dispositivo, editar destino e resolver link público com evento mínimo. Aceite: o mesmo código passa a redirecionar para o novo destino; código inválido/inativo é tratado; destino inseguro é rejeitado; acesso público não expõe dados privados; falha de registro não impede destino já resolvido; integridade entre empresas é testada. Definir limites de requisições e retenção antes do piloto público.
-
-Integrações reais com Google e demais módulos ficam para incrementos próprios, após definição de credenciais, escopo e origem dos dados.
-
-## Etapa 07 — preparação de produção
-
-Validar o plano Hostinger, Node, build/start, variáveis de ambiente, HTTPS, domínios, callbacks e processo persistente. Separar Supabase de desenvolvimento/produção, planejar backups e restauração e definir aplicação de migrações e recuperação em caso de falha. Não presumir que recursos de backup estão incluídos no plano contratado.
-
-Aceite: smoke test de login e isolamento no ambiente de homologação, sem segredos no bundle; procedimento de deploy reproduzível e verificação da estratégia de recuperação antes de dados reais. Publicação exige escopo autorizado e configurações disponíveis.
-
-## Decisões pendentes por momento
-
-| Quando | Informação necessária |
+| Momento | Decisão necessária |
 | --- | --- |
-| Antes do fluxo de autenticação | Confirmar entrada por convite e e-mail/senha ou outro método desejado |
-| Antes de conceder acesso global | Identidade do primeiro administrador ADSCOM |
-| Antes de conectar serviços | Remoto GitHub e configuração local do projeto Supabase já informado pelo desenvolvedor |
-| Antes do primeiro módulo | Prioridade de produto entre recomendações manuais e piloto NFC |
-| Antes de NFC público | Domínio, política de destinos, dados de evento e retenção |
-| Antes de produção | Plano Hostinger, domínio da aplicação, ambientes, e-mail e responsáveis por operação |
+| Próxima etapa | Prioridade e critérios de aceite do primeiro módulo |
+| Gestão de identidades ampliada | Convites, recuperação e responsabilidade operacional; hoje as contas Auth já devem existir |
+| NFC público | Domínio, destinos permitidos, significado dos eventos e retenção |
+| Produção | Hostinger, domínio, ambientes, e-mail, backups e responsáveis |
+| Checkpoint Git | Revisão humana do diff acumulado antes de autorizar commit/push |
 
-Essas decisões não bloqueiam a documentação atual. Devem ser resolvidas antes do trabalho que depende delas.
+Não há bloqueio documental para planejar a próxima etapa; executar somente o escopo posteriormente aprovado.

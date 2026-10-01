@@ -1,10 +1,14 @@
-# Arquitetura inicial proposta
+# Arquitetura — estado atual e evolução futura
 
-## 1. Limites da etapa
+## 1. Estado consolidado
 
-Este documento é uma proposta implementável, não a descrição de funcionalidades prontas. O repositório foi encontrado vazio, com Git inicializado, sem commits e sem remoto. A Etapa 02 acrescentou o bootstrap Next.js e uma página inicial. A Etapa 03 acrescentou clientes Supabase, configuração local da CLI, migration das três tabelas e testes. A migration foi aplicada e validada no Supabase local em 27/09/2026: 48 asserções pgTAP e cenários A–I por HTTP passaram. Não houve aplicação ou vínculo remoto. A Etapa 04 acrescentou somente login e-mail/senha, sessão SSR, /app protegida e logout; NFC continua futuro. Consulte docs/supabase.md para execução e pendências.
+As Etapas 01–07 implementam autenticação SSR, isolamento multiempresa, shell com contexto de empresa e administração mínima. A Etapa 08 consolida a fundação; consulte [plano](plano-mvp.md) e [resultados](consolidacao.md). A migration e as policies foram validadas localmente e permanecem inalteradas. O usuário informou revisões manuais; o agente não executou operações remotas. NFC e integrações abaixo são propostas futuras, não funcionalidades prontas.
 
 ## 2. Uma aplicação, um banco
+
+Atualização da Etapa 07: `/admin` permite operações mínimas de empresas e vínculos. `requireAdmin` confirma sessão e papel global no banco em cada página/action; RLS continua aplicada na operação final. O modelo e as migrations permanecem intactos; memberships exibem UUID, sem consulta de e-mail Auth ou profiles. Consulte [administração](administracao.md).
+
+Atualização da Etapa 06: `/app` e cinco subrotas usam shell autenticado e contexto de empresa resolvido no servidor. Empresa única é automática; múltiplas têm seleção explícita em cookie HTTP-only, revalidada contra empresas acessíveis sob RLS. ADMIN_ADSCOM mantém papel global, sem membership artificial. Layout, template e páginas reutilizam a consulta por requisição, sem cache privado compartilhado. O cadastro de empresas e painel administrativo estão descritos acima. Fluxo e validação em [dashboard](dashboard.md).
 
 Usar Next.js App Router para páginas e operações de servidor, Supabase Auth para identidade e PostgreSQL/Supabase para dados. Não criar um backend separado agora: Route Handlers e Server Actions atendem às primeiras operações. Supabase fornece a API de dados; o acesso autenticado deve preservar o JWT do usuário para que RLS seja aplicada.
 
@@ -12,46 +16,37 @@ Usar SQL versionado e o cliente Supabase inicialmente. Um ORM adicionaria outra 
 
 O Next.js será executado como servidor Node.js, com build e start convencionais. Não usar exportação estática para uma aplicação dependente de sessão no servidor. Não assumir funções, cron, storage ou serviços exclusivos da Vercel. O serviço Supabase continua externo à hospedagem da aplicação.
 
-## 3. Estrutura proposta para o bootstrap
+## 3. Estrutura atual
 
-Na Etapa 02 existem `src/app/page.tsx`, `layout.tsx` e `globals.css`, além dos documentos, package.json, package-lock.json, tsconfig.json, eslint.config.mjs, postcss.config.mjs, next.config.ts, .gitignore e .nvmrc. A única opção customizada do Next.js é agentRules: false para preservar o AGENTS.md do projeto contra geração automática em next dev.
-
-Next.js 16 usa ESLint CLI separado (`npm run lint`). Tailwind 4 usa importação CSS e plugin PostCSS, sem tailwind.config.js. Há src/proxy.ts para renovar sessão em /login e /app; não há biblioteca de componentes compartilhados. Os clientes Supabase browser/server e a validação de ambiente existem em src/lib/supabase; não são chamados pela página inicial. next-env.d.ts e .next são gerados pelo Next.js e ignorados no Git. O typecheck gera os tipos de rotas antes de executar TypeScript.
-
-A árvore abaixo mantém a direção futura; não representa todos os diretórios já criados. `.env.example` agora define URL e Publishable Key vazias; .env.local real permanece ignorado.
+Next.js usa ESLint CLI separado, Tailwind via CSS/PostCSS e geração de tipos de rotas antes do TypeScript. `next.config.ts` preserva AGENTS.md com agentRules: false. Tipos gerados, `.next` e `.env.local` são ignorados; `.env.example` contém apenas nomes e valores vazios.
 
 ```text
-AGENTS.md
-README.md
-docs/
-  arquitetura.md
-  plano-mvp.md
 src/
   app/
-    page.tsx                          # página inicial implementada
-    (auth)/login/page.tsx
-    (cliente)/app/layout.tsx
-    (cliente)/app/organizations/[organizationId]/page.tsx
-    (admin)/admin/layout.tsx
-    (admin)/admin/organizations/page.tsx
-    auth/callback/route.ts              # futuro; não necessário para e-mail/senha
-    r/[code]/route.ts                   # somente na etapa NFC
+    page.tsx                           # página inicial
+    (auth)/login/                      # login e action
+    (cliente)/app/                     # shell, actions e Visão geral
+      presenca/ avaliacoes/ nfc/       # placeholders
+      relatorios/ configuracoes/      # placeholders
+    (admin)/admin/                     # layout, visão geral e actions
+      empresas/page.tsx                # lista e cadastro
+      empresas/[id]/page.tsx           # detalhe e vínculos
     layout.tsx
     globals.css
-  components/                          # componentes compartilhados reais
   lib/
-    supabase/client.ts                 # cliente do navegador
-    supabase/server.ts                 # cliente por requisição, com cookies
-    auth/                              # verificações comuns, quando existirem
-  proxy.ts                             # se exigido pela versão escolhida/SSR
-supabase/
-  migrations/
-  tests/                               # testes reais de políticas e integridade
-.env.example
-.gitignore
-package.json
-package-lock.json
+    auth/                             # validação de credenciais
+    admin/                            # autorização e validação de entradas
+    organizations/                    # contexto e seleção
+    supabase/                         # configuração e clientes SSR
+  proxy.ts                            # sessão em /login, /app e /admin
+supabase/migrations/                   # migration única da fundação
+supabase/tests/database/              # pgTAP
+scripts/                              # HTTP/RLS, dashboard e administração
+tests/                               # testes unitários Node
+docs/                                # documentação
 ```
+
+Não existem rotas de callback, redirecionamento NFC ou módulos de negócio implementados. O cliente de navegador Supabase está preparado, mas a aplicação atual usa operações no servidor.
 
 Grupos entre parênteses organizam layouts sem alterar URLs. `/app` atende clientes e `/admin` atende ADSCOM. Layouts distintos melhoram a navegação, mas não garantem segurança: cada leitura e mutação precisa de autorização própria.
 
@@ -59,16 +54,16 @@ Grupos entre parênteses organizam layouts sem alterar URLs. `/app` atende clien
 
 Banco compartilhado com linhas identificadas por empresa. É uma opção simples para o MVP; evita manter um banco ou schema por cliente. A responsabilidade de isolamento fica explícita em RLS, constraints e testes.
 
-| Entidade | Campos e restrições propostos | Objetivo |
+| Entidade | Campos e restrições implementados | Objetivo |
 | --- | --- | --- |
 | `auth.users` | ID e credenciais geridos pelo Supabase Auth | Fonte única de identidade; sem tabela pública de senhas |
 | `organizations` | `id uuid PK`, `name text NOT NULL` não vazio, `created_at timestamptz NOT NULL` | Empresa cliente |
 | `organization_members` | `organization_id uuid FK`, `user_id uuid FK auth.users(id)`, `role text NOT NULL DEFAULT 'CLIENTE'`, `created_at`; PK composta `(organization_id, user_id)` | Vínculo muitos-para-muitos entre usuário e empresa |
 | `user_global_roles` | `user_id uuid FK auth.users(id)`, `role text NOT NULL`, `created_at`; PK `(user_id, role)` | Concessão explícita do papel global ADMIN_ADSCOM |
 
-A migration ativa RLS nas três tabelas próprias. Criar índice de membros começando por `user_id` para consultas de acesso; a PK já atende buscas começando por empresa. Datas devem usar timezone e valores padrão no banco.
+A migration ativa RLS nas três tabelas próprias. O índice de membros começa por `user_id` para consultas de acesso; a PK já atende buscas começando por empresa. Datas usam timezone e valores padrão no banco.
 
-Papéis serão textos com CHECK restritivo: inicialmente somente CLIENTE nos vínculos e ADMIN_ADSCOM nos papéis globais. Novos papéis exigem migração, políticas e testes explícitos, sem reestruturar vínculos. Não criar um motor genérico de permissões agora. ADMIN_ADSCOM não deve ser um papel de uma empresa comum.
+Papéis são textos com CHECK restritivo: inicialmente somente CLIENTE nos vínculos e ADMIN_ADSCOM nos papéis globais. Novos papéis exigem migração, políticas e testes explícitos, sem reestruturar vínculos. Não criar um motor genérico de permissões agora. ADMIN_ADSCOM não deve ser um papel de uma empresa comum.
 
 Excluir usuário pode remover seus vínculos e concessões por cascata. Exclusão de empresa deve ser RESTRICT inicialmente; não oferecer exclusão definitiva de clientes até definir retenção e dependências. Não guardar o estágio de evolução ainda: acrescentar campo com valores ENTRAR/ESTRUTURAR/CRESCER quando seu fluxo de edição existir.
 
@@ -89,13 +84,13 @@ A migration 20260926000100_multi_tenant_foundation.sql implementa a matriz abaix
 
 ## 5. Autenticação
 
-Implementação atual: e-mail/senha em Server Action; getClaims no proxy para renovar/validar sessão; getUser nas páginas para confirmar usuário no Auth; signOut local para logout. Não há cadastro, recuperação, seleção de empresa, /admin ou callback. Server Components não gravam cookies; o proxy os atualiza antes da renderização. Server Actions usam writeCookies=true, sem ocultar falhas. Rotas dinâmicas e headers privados impedem cache compartilhado em produção. Consulte [autenticação](autenticacao.md).
+Implementação atual: e-mail/senha em Server Action; getClaims no proxy para renovar/validar sessão; getUser no contexto servidor usado por layout, páginas, seleção de empresa e administração; signOut local para logout. Não há cadastro Auth, recuperação ou callback. Server Components não gravam cookies; o proxy os atualiza antes da renderização. Server Actions usam escrita explícita, sem ocultar falhas. Rotas dinâmicas e headers privados impedem cache compartilhado em produção. Consulte [autenticação](autenticacao.md), [dashboard](dashboard.md) e [administração](administracao.md).
 
-Supabase Auth gerencia credenciais, login, recuperação e sessões. A proposta para o primeiro fluxo é entrada de clientes por convite da ADSCOM, com e-mail/senha; confirmar esse fluxo antes de implementá-lo. A fundação não depende dessa escolha: um usuário autenticado sem vínculo e sem papel global terá zero acesso a empresas.
+Supabase Auth gerencia credenciais, login, recuperação e sessões. O login atual usa e-mail/senha de contas existentes. Convites pela ADSCOM são uma proposta futura que precisa de escopo próprio. A fundação não depende dessa escolha: um usuário autenticado sem vínculo e sem papel global terá zero acesso a empresas.
 
 Na implementação SSR, usar os clientes de navegador e servidor de `@supabase/ssr`, seguindo a documentação da versão instalada. Cookies transportam a sessão; a atualização de tokens deve seguir o fluxo SSR suportado. Validar identidade no servidor com a API adequada (atualmente getClaims para validação de JWT; getUser quando precisar confirmar estado junto ao Auth). Não confiar apenas em getSession ou na existência de um cookie. Para ações sensíveis, considerar também sessão revogada/usuário desativado.
 
-Callbacks devem aceitar somente destinos internos permitidos para impedir redirecionamento aberto. Não armazenar tokens em logs. Cada cliente de servidor deve ser criado no contexto da requisição, sem sessão global compartilhada.
+Se implementados futuramente, callbacks devem aceitar somente destinos internos permitidos para impedir redirecionamento aberto. Não armazenar tokens em logs. Cada cliente de servidor deve ser criado no contexto da requisição, sem sessão global compartilhada.
 
 ## 6. Autorização e RLS
 

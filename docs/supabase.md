@@ -2,13 +2,17 @@
 
 ## Estado real
 
+Etapa 08: a migration única permanece intacta. A suíte atual inclui 52 asserções pgTAP, HTTP/RLS e administração/dashboard; resultados da reexecução em [consolidação](consolidacao.md). O usuário informou validação manual remota na Etapa 05 e revisão funcional na Etapa 07. O agente não inspecionou nem alterou o remoto; não se infere o histórico remoto a partir do checkout. Os parágrafos seguintes registram as execuções locais anteriores.
+
+**Etapa 05, 29/09/2026:** repetição local aprovada com 52 asserções pgTAP e suíte HTTP ampliada. As quatro novas asserções SQL cobrem nome de B por UUID, vínculos de A invisíveis a B, ausência de memberships e UUID conhecido para usuário sem vínculo. A suíte HTTP também exercita as leituras de `/app` para cinco perfis e UUID direto de A como B/sem vínculo. Fixtures HTTP removidas; SQL usa rollback. Nenhuma migration, policy ou configuração remota alterada. Os resultados abaixo de 27/09 são o histórico da Etapa 03.
+
 **Validação local concluída em 27/09/2026.** A inicialização do Supabase local aplicou a migration. `npm run db:migrate` confirmou que não havia migrations pendentes. As 48 asserções pgTAP e os cenários A–I da suíte HTTP passaram. Não houve alteração nas policies ou na migration.
 
 Na primeira execução, pgTAP parou após oito asserções por erro de sintaxe do teste: CTEs com UPDATE/DELETE estavam aninhadas em argumentos de função. Seis asserções foram corrigidas colocando a CTE no nível superior, mantendo os mesmos resultados esperados. A repetição completa passou. O NOTICE sobre pgTAP já instalado é informativo.
 
 A limpeza foi confirmada por consulta local: organizations=0, organization_members=0, user_global_roles=0 e usuários de teste=0. Os testes SQL usam rollback; a suíte HTTP removeu suas fixtures. A indisponibilidade de Docker registrada na entrega anterior foi resolvida pelo desenvolvedor.
 
-O projeto remoto ADSCOM Dashboard, região São Paulo, foi informado pelo desenvolvedor. A CLI não foi autenticada ou vinculada a ele. Nenhuma operação remota foi executada; o schema remoto não foi inspecionado. Não foram criadas contas ou empresas de teste remotas.
+O projeto remoto ADSCOM Dashboard, região São Paulo, foi informado pelo desenvolvedor. Na execução original da Etapa 03, o agente não autenticou nem vinculou a CLI a ele. Na auditoria da Etapa 08, supabase/.temp/project-ref não foi encontrado neste checkout. Nenhuma operação remota foi executada; o schema remoto não foi inspecionado. Não foram criadas contas ou empresas de teste remotas.
 
 ## Configurar a aplicação
 
@@ -61,7 +65,7 @@ npm run db:stop
 
 ## Testes de isolamento
 
-`npm run test:db` contém 48 asserções e executa `supabase/tests/database/001_multi_tenant.test.sql` via pgTAP. A preparação de fixtures ocorre com o proprietário local; as verificações de acesso fazem SET LOCAL ROLE authenticated/anon e definem request.jwt.claims para simular o contexto do Auth. Somente preparação, integridade e limpeza usam o proprietário. O arquivo termina em ROLLBACK; fixtures não persistem. Ele não deve ser executado em produção nem com `--linked`.
+`npm run test:db` contém 52 asserções (48 originais e quatro da Etapa 05) e executa `supabase/tests/database/001_multi_tenant.test.sql` via pgTAP. A preparação de fixtures ocorre com o proprietário local; as verificações de acesso fazem SET LOCAL ROLE authenticated/anon e definem request.jwt.claims para simular o contexto do Auth. Somente preparação, integridade e limpeza usam o proprietário. O arquivo termina em ROLLBACK; fixtures não persistem. Ele não deve ser executado em produção nem com `--linked`.
 
 `npm run test:rls:api` usa Supabase Auth local para criar seis usuários temporários `rls-<UUID>-<papel>@example.test` com senhas aleatórias apenas em memória. As requisições usam chave pública local e JWTs emitidos pelo Auth, sem service_role. O script não lê `.env.local`, fixa a API em 127.0.0.1:54321, exige contexto Docker local e usa somente o contêiner supabase_db_adscom-dashboard. Obtém a chave pública via status da CLI em memória, sem exibir sua saída.
 
@@ -81,9 +85,9 @@ Para preparar vínculos/concessões e limpar fixtures, o teste usa `docker exec 
 
 A suíte SQL também cobre cliente B, múltiplos vínculos, usuário sem vínculo, leitura de concessões próprias, edição/remoção de vínculos, proibição de escrita de papéis globais por admin, revogação de admin, troca de organization_id por cliente, grants de colunas, CHECKs, RESTRICT, CASCADE e ativação de RLS. A suíte HTTP complementa os cenários A–I e parte dessas verificações. Uma atualização/deleção bloqueada por RLS pode retornar zero linhas em vez de erro; os testes consideram esse comportamento. Infraestrutura indisponível resulta em código de saída diferente de zero, nunca em aprovação silenciosa.
 
-`npm test` testa somente validação de configuração do SDK. Ele não substitui testes de RLS nem demonstra conexão com Supabase.
+`npm test` contém 13 testes de configuração do SDK, credenciais, seleção de empresa e entradas administrativas. Ele não substitui testes de RLS nem demonstra conexão com Supabase.
 
-## Aplicar ao projeto remoto — procedimento ainda não executado
+## Aplicar ao projeto remoto — procedimento não executado pelo agente
 
 Primeiro concluir testes locais e revisar o SQL. A Publishable Key não tem permissão para migrations. A CLI pode precisar autenticar a conta Supabase e de acesso administrativo ao banco; esses dados ficam no armazenamento local da CLI ou no prompt seguro, nunca em arquivos versionados ou argumentos contendo senhas.
 

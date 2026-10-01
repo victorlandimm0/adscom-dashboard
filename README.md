@@ -1,156 +1,72 @@
 # ADSCOM Dashboard
 
-Plataforma de presença e evolução digital da ADSCOM.
+SaaS B2B multiempresa para acompanhar a presença e a evolução digital dos clientes da ADSCOM. ENTRAR, ESTRUTURAR e CRESCER são estágios; SOLUTIONS é uma vertical de tecnologia.
 
-**Estado atual: Etapa 04 — autenticação mínima.** Há login por e-mail/senha em `/login`, sessão SSR, `/app` protegida no servidor e logout. A fundação de dados foi validada somente localmente; esta etapa não alterou migrations/RLS nem executou operações remotas. Não há dashboard de negócio, cadastro público na interface ou integrações.
+A fundação das Etapas 01–07 está implementada: login/logout, sessão SSR, isolamento por RLS, contexto de empresa, shell do dashboard e administração mínima. A Etapa 08 consolida documentação e validações; veja o [relatório](docs/consolidacao.md). Presença, Avaliações, NFC, Relatórios e Configurações continuam placeholders. Não há integrações ou métricas de negócio.
 
 ## Executar localmente
 
-Use Node.js **24.14.1** (referência em `.nvmrc`) e npm **11.11.0**, versões utilizadas nesta etapa. O projeto declara suporte à linha Node 24 a partir de 24.14.1. Se usar um gerenciador de versões compatível, selecione a versão de `.nvmrc` antes de instalar.
+Requisitos: Node **24.14.1** (`.nvmrc`), npm **11.11.0** e, para banco/testes locais, Docker Desktop com contêineres Linux em execução. Dependências diretas têm versões exatas e lockfile.
 
 ```sh
 npm ci
+```
+
+Copie `.env.example` para `.env.local` somente se o arquivo local ainda não existir. Preencha localmente `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` do mesmo ambiente. O exemplo versionado tem valores vazios; arquivos reais de ambiente são ignorados. Nunca use secret key, service_role ou senha de banco nessas variáveis.
+
+Para Supabase local, execute `npm run db:start` e obtenha a URL e a Publishable Key locais no Studio/CLI. A inicialização pode baixar imagens e aplicar migrations no primeiro provisionamento; `npm run db:migrate` aplica apenas migrations locais pendentes. Detalhes em [Supabase](docs/supabase.md). Não é necessário login/link da CLI para o ambiente local.
+
+```sh
 npm run dev
 ```
 
-Acesse [localhost:3000](http://localhost:3000). Encerre com Ctrl+C. A página inicial continua funcionando sem variáveis. Para utilizar os clientes Supabase, copie `.env.example` para `.env.local` e preencha URL e Publishable Key localmente. Veja [configuração e migrations](docs/supabase.md).
+Abra [localhost:3000](http://localhost:3000). `/` funciona sem Supabase; `/login`, `/app` e `/admin` exigem configuração e serviço acessível. Use uma conta Auth existente com e-mail/senha: não há cadastro de usuários na aplicação. Pare com Ctrl+C; `npm run db:stop` encerra a stack local.
 
-## Verificações e produção local
+## Papéis e navegação
 
-```sh
-npm run lint
-npm run typecheck
-npm run build
-npm start
-```
+- **CLIENTE:** acessa somente empresas às quais está vinculado. Empresa única é selecionada automaticamente; múltiplas exigem seleção. A preferência sobrevive ao refresh em cookie de sessão e é revalidada no servidor/RLS.
+- **ADMIN_ADSCOM:** papel global concedido por procedimento administrativo controlado, nunca pelo formulário. Acessa `/admin`, cadastra empresas e vincula/remove usuários Auth existentes por UUID. Remover vínculo preserva a conta Auth e outros vínculos.
 
-- `lint`: ESLint CLI com regras Next.js Core Web Vitals e TypeScript; warnings fazem o comando falhar.
-- `typecheck`: gera os tipos de rotas com `next typegen` e executa `tsc --noEmit`; funciona antes do primeiro build.
-- `build`: gera a aplicação de produção em `.next`.
-- `start`: executa o build em servidor Node.js. Para outra porta: `npm start -- --port 3001`.
+Sem vínculo nem papel global, a conta não acessa empresas. A aplicação usa a sessão normal do usuário e chave publicável nessas operações.
 
-Execute desenvolvimento e build separadamente. O selo da página exibe “Ambiente de desenvolvimento” em `npm run dev` e “Versão inicial” em produção. Não há dados demonstrativos ou chamadas a serviços externos.
+## Validar
 
-## Estrutura atual
+| Comando | O que verifica |
+| --- | --- |
+| `npm run lint` | ESLint, sem warnings permitidos |
+| `npm run typecheck` | Tipos de rotas e TypeScript estrito |
+| `npm test` | Configuração, credenciais, seleção de empresa e entradas administrativas |
+| `npm run test:db` | 52 asserções pgTAP no Supabase local |
+| `npm run test:rls:api` | Isolamento pela API com JWTs de usuários locais |
+| `npm run test:dashboard` | HTTP/RLS, login, shell, seleção, logout **e administração** |
+| `npm run build` | Build de produção |
+| `git diff --check` | Problemas de whitespace no diff rastreado |
+
+Testes de banco/HTTP exigem Supabase local já iniciado e migration aplicada; criam e removem fixtures descartáveis. Nunca executá-los contra o remoto. `test:dashboard` requer a porta 3106 livre e gera `.next` com configuração local injetada no processo, sem modificar `.env.local`. **Não execute dev/build/test:dashboard simultaneamente.** Faça `npm run build` depois de `test:dashboard` para restaurar o build com a configuração habitual; `npm start` serve esse build. Testes HTTP não substituem revisão visual/hidratação no navegador.
+
+## Stack e estrutura
+
+Next.js 16.3.6 (App Router), React 19.3.0, TypeScript 5.9.3, Tailwind 4.3.3, Supabase Auth/PostgreSQL e SDK SSR. Scripts, versões e dependências completas em [package.json](package.json).
 
 ```text
-src/app/
-  layout.tsx       # HTML pt-BR, metadados e CSS global
-  page.tsx         # página inicial, Server Component
-  (auth)/login/    # login, formulário e Server Action
-  (cliente)/app/   # página protegida e logout
-  globals.css      # Tailwind e estilos globais mínimos
-eslint.config.mjs # ESLint flat config
-postcss.config.mjs
-next.config.ts    # preserva AGENTS.md contra geração automática
-tsconfig.json
-package.json
-package-lock.json
-.nvmrc
-.gitignore
-AGENTS.md
-docs/
+src/app/(auth)/login/       # login e Server Action
+src/app/(cliente)/app/     # shell e seis páginas placeholder
+src/app/(admin)/admin/     # empresas e vínculos
+src/lib/                   # auth, Supabase, contexto de empresa, autorização admin
+src/proxy.ts               # renovação de sessão nas áreas autenticadas
+supabase/migrations/       # fundação SQL versionada
+supabase/tests/            # pgTAP
+scripts/                   # testes HTTP/RLS, dashboard e administração
+tests/                    # testes unitários Node
+docs/                     # decisões, operação, validações e limites
 ```
 
-`next-env.d.ts`, `.next/` e arquivos incrementais são gerados e ignorados no Git. `next.config.ts` define somente `agentRules: false`, opção do Next.js 16.3.6 que evita alterações automáticas em AGENTS.md ao iniciar o desenvolvimento. Tailwind 4 usa CSS e PostCSS; não precisa de `tailwind.config.js` neste bootstrap. `.env.example` contém NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY vazias. Valores reais ficam somente em `.env.local`. `.env*` reais já estão ignorados.
+`.next`, `node_modules`, tipos gerados e estado temporário Supabase são ignorados. O projeto usa `next build`/`next start`, sem dependência de serviços exclusivos da Vercel. Hostinger é o destino planejado; plano, runtime e implantação ainda precisam de validação.
 
-## Dependências
+## Documentação
 
-Dependências diretas têm versões exatas em [package.json](package.json), e a árvore instalada está fixada em [package-lock.json](package-lock.json).
-
-- Execução: Next.js 16.3.6, React 19.3.0 e React DOM 19.3.0.
-- Desenvolvimento: TypeScript 5.9.3, tipos de Node/React/React DOM, ESLint 9 e eslint-config-next 16.3.6, Tailwind CSS 4.3.3, plugin PostCSS do Tailwind 4.3.3 e PostCSS 8.
-
-A Etapa 03 adicionou @supabase/supabase-js 2.117.2 e @supabase/ssr 0.12.7 em execução, e Supabase CLI 2.118.0 em desenvolvimento. Não há bibliotecas de UI ou fontes remotas. O projeto declara ES Modules em package.json, evitando ambiguidade ao executar os testes TypeScript nativos do Node 24. A configuração de TypeScript permanece na linha estável 5.9, suficiente para esta stack; não é necessário adotar a versão principal mais recente para este bootstrap.
-
-### Aviso de compatibilidade do ESLint
-
-A instalação informa que ESLint 9.39.5 está fora de suporte. A configuração oficial do Next.js 16.3.6 depende de eslint-plugin-react 7.37.5, cujo peerDependency aceita ESLint somente até a linha 9. O bootstrap mantém essa combinação compatível, sem `--force` ou `--legacy-peer-deps`. Reavaliar a atualização para ESLint 10 quando a configuração oficial e seus plugins declararem suporte. Esse aviso não significa falha de lint e não foi ocultado.
-
-## Portabilidade e Hostinger
-
-O projeto usa `next build` e `next start`, sem serviços exclusivos da Vercel e sem exportação estática. A pré-renderização da página inicial é uma otimização do Next.js; a forma de execução documentada continua sendo Node.js.
-
-O plano Hostinger ainda não foi verificado. Antes de implantar, confirmar suporte à linha Node 24 usada pelo projeto, instalação de dependências de desenvolvimento durante o build, processo Node persistente, configuração de porta, HTTPS e comandos de build/start. Hospedagem que aceite somente arquivos estáticos não atende à arquitetura futura. Não houve deploy nesta etapa.
-
-## Documentação e próximas etapas
-
-- [Arquitetura](docs/arquitetura.md): estrutura atual e desenho futuro de banco, autenticação, isolamento e NFC.
-- [Plano do MVP](docs/plano-mvp.md): incrementos e critérios de aceite.
-- [AGENTS.md](AGENTS.md): convenções e regras de segurança.
-
-A migration define organizations, organization_members e user_global_roles, com oito policies e grants mínimos, sem funções SQL privilegiadas. O desenvolvedor informou a criação de um projeto Supabase remoto em São Paulo; ele não foi inspecionado nem vinculado à CLI. GitHub/remoto e primeiro administrador continuam sem configuração. Login mínimo e logout existem. Telas de clientes/admin, avaliações, NFC, pagamentos e integrações continuam futuros. O vínculo remoto foi informado no briefing da Etapa 04, mas não existe arquivo de vínculo neste checkout; não foi necessário conectar ao remoto.
-
-## Histórico de validação da Etapa 02
-
-- `npm ci`: passou, com 0 vulnerabilidades reportadas pela auditoria npm naquele momento.
-- `npm run lint`: passou sem warnings de lint.
-- `npm run typecheck`: passou.
-- `npm run build`: passou, gerando `/` e a página interna de não encontrado.
-- `npm start`: iniciou; HTTP 200, título, idioma pt-BR, selo de produção e CSS Tailwind verificados.
-- `npm run dev`: iniciou; HTTP 200, título e selo de desenvolvimento verificados.
-- `.gitignore`: confirmado para dependências, build, tipos gerados e `.env.local`.
-
-As primeiras tentativas de build e desenvolvimento falharam com `spawn EPERM` no ambiente restrito do agente; ambas funcionaram ao permitir a criação de processos Node. Não foi necessário contornar verificações do framework. O aviso de fim de suporte do ESLint está descrito acima. Não foi realizada inspeção visual em navegador nem implantação na Hostinger. Na conferência final, `npm ls --depth=0` marcou auxiliares WASM como `extraneous` (@emnapi/core, @emnapi/runtime, @emnapi/wasi-threads, @img/sharp-wasm32, @napi-rs/wasm-runtime e @tybys/wasm-util), mesmo após npm ci bem-sucedido. Eles não são dependências diretas declaradas; o aviso permanece registrado, sem impacto observado em lint, tipos, build e execução. Os servidores de validação foram encerrados. Não existem testes de funcionalidades de negócio, pois elas ainda não foram implementadas.
-
-
-## Arquivos e comandos da Etapa 03
-
-- `src/lib/supabase/{client,server,env}.ts`: clientes com chave publicável e validação de configuração.
-- `.env.example`: nomes das duas variáveis, sem valores reais.
-- `supabase/config.toml` e `supabase/.gitignore`: configuração local da CLI.
-- `supabase/migrations/20260926000100_multi_tenant_foundation.sql`: tabelas, constraints, grants e RLS.
-- `supabase/tests/database/001_multi_tenant.test.sql`: testes pgTAP com rollback.
-- `scripts/test-rls-api.mjs`: testes locais pela API com JWTs reais e limpeza de fixtures.
-- `tests/supabase-env.test.mjs`: testes da configuração, sem chamadas externas.
-- [Guia Supabase](docs/supabase.md): aplicação local/remota de migrations, permissões, conceitos e resultados A–I.
-
-```sh
-npm test
-npm run db:start
-npm run db:migrate
-npm run test:db
-npm run test:rls:api
-npm run db:stop
-```
-
-Os comandos de banco exigem Docker Desktop em execução. A CLI é local ao projeto; não é necessário login para o ambiente local. Não executar testes no remoto. Não há script de reset nem migrations aplicadas remotamente nesta entrega.
-
-## Validação da Etapa 03
-
-Em 27/09/2026, Docker Desktop em execução e migration aplicada ao Supabase local (PostgreSQL 17). `npm run db:migrate` confirmou ausência de migrations locais pendentes.
-
-- `npm run test:db`: **48/48 asserções pgTAP passaram**.
-- `npm run test:rls:api`: **cenários A–I passaram**, além dos casos de múltiplos vínculos, usuário sem vínculo, escritas proibidas e revogação de administrador.
-- Limpeza confirmada por consulta local: zero organizações, vínculos, papéis globais e usuários de teste restantes.
-- Uma primeira execução do pgTAP revelou sintaxe inválida em seis asserções com CTE de escrita aninhada. As CTEs foram movidas ao nível superior; a suíte completa passou na repetição. A migration e as policies não precisaram mudar.
-- O aviso `extension pgtap already exists, skipping` é informativo e não impediu os testes.
-
-Instalação limpa, lint, typecheck, build e quatro testes de configuração já passaram na implementação anterior. Nesta retomada foi alterado somente o teste SQL e a documentação; não houve mudanças na aplicação nem nas dependências. Restrições locais de acesso ao Docker/CLI foram resolvidas usando a permissão de execução apropriada.
-
-O provisionamento inicial precisou baixar as imagens Docker. Nenhuma migration foi aplicada ao remoto, não houve login/link da CLI ou concessão de administrador real. A validação é do ambiente local, não do projeto hospedado. Resultados individuais e detalhes em [Supabase](docs/supabase.md).
-
-A Etapa 03 foi validada localmente. A Etapa 04 mínima foi posteriormente autorizada; aplicação remota continua fora do escopo desta execução.
-
-
-## Autenticação mínima — Etapa 04
-
-Configure NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY somente em `.env.local`, conforme `.env.example` (sem valores reais). Não há novas variáveis ou dependências. A página `/` funciona sem configuração; `/login` e `/app` exigem um Supabase acessível e configurado. Use um usuário Auth existente com e-mail e senha. Não há cadastro na aplicação.
-
-- `/login` envia credenciais para uma Server Action. O Supabase valida a senha e a sessão é persistida em cookies; sucesso redireciona para `/app`.
-- `src/proxy.ts` renova a sessão antes de renderizar essas rotas e preserva cookies/headers de cache privados.
-- `/app` consulta `auth.getUser()` no servidor antes de exibir e-mail e confirmação de autenticação. Anônimo vai para `/login`; autenticado em `/login` vai para `/app`.
-- `Sair` executa signOut com scope local em Server Action, remove cookies e redireciona ao login. Não encerra sessões de outros dispositivos.
-- Não há callback porque o fluxo é e-mail/senha. RLS continua protegendo dados de empresas; esta página não consulta dados de negócio nem confere papel administrativo.
-
-Detalhes de ambiente, configuração de usuários, limites e roteiro manual: [Autenticação](docs/autenticacao.md).
-
-### Validação da Etapa 04
-
-- Lint, typecheck e build de produção: passaram. `/login` e `/app` são dinâmicas.
-- `npm test`: sete testes passaram (quatro de ambiente e três de validação das credenciais).
-- Navegador headless contra build de produção e Supabase local: anônimo redirecionado; senha incorreta recusada com erro genérico; login válido; e-mail correto; sessão persistente após reload; autenticado em /login redirecionado; renovação com expiração simulada no cookie; headers private/no-store; logout; cookies removidos; acesso negado após logout e com cookie adulterado. Usuário temporário removido ao final.
-- A primeira verificação adicional de cache falhou em modo de desenvolvimento. O token já era renovado corretamente; a resposta de produção confirmou private/no-store. Nenhuma política RLS precisou mudar.
-- Os testes de navegador foram executados com ferramenta já disponível no ambiente, sem adicionar Playwright ao projeto. O roteiro manual está documentado. A suíte RLS anterior não foi alterada nem repetida, pois não houve mudanças no banco.
-
-Permanece o aviso anterior sobre suporte do ESLint 9. Nenhum teste foi executado no remoto e nenhum `.env.local` com valores reais foi criado nesta etapa. Configuração remota e usuários de acesso continuam sob responsabilidade do desenvolvedor. Não avançamos para a Etapa 05.
+- [Arquitetura](docs/arquitetura.md) e [plano do MVP](docs/plano-mvp.md).
+- [Autenticação](docs/autenticacao.md), [dashboard](docs/dashboard.md) e [administração](docs/administracao.md).
+- [Supabase, migrations e RLS](docs/supabase.md).
+- [Consolidação, testes, Git e dívidas técnicas](docs/consolidacao.md).
+- [Histórico de validações](docs/historico-validacoes.md) e [instruções para agentes](AGENTS.md).

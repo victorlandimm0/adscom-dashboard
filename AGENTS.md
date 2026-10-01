@@ -4,7 +4,11 @@
 
 SaaS B2B multiempresa da ADSCOM para acompanhar a evolução da presença digital dos clientes. ENTRAR, ESTRUTURAR e CRESCER são estágios; SOLUTIONS é uma vertical de tecnologia, não uma etapa obrigatória.
 
-O projeto está na Etapa 04: login mínimo por e-mail/senha, sessão SSR, /app protegida e logout implementados. A migration foi aplicada somente no Supabase local. As 48 asserções pgTAP e a suíte HTTP (cenários A–I) passaram em 27/09/2026; fixtures removidas. Nenhuma migration foi aplicada ao remoto. O desenvolvedor informou vínculo remoto, mas não foi encontrado supabase/.temp/project-ref neste checkout; nenhuma operação remota ocorreu nesta etapa. Não há dashboard de negócio ou integrações implementadas. Leia README.md, docs/arquitetura.md, docs/plano-mvp.md e docs/supabase.md antes de alterar o projeto.
+Estado consolidado em 30/09/2026: Etapas 01–07 implementadas. Login/logout e sessão SSR, shell com seis placeholders, contexto de empresa e administração mínima estão disponíveis. Empresa única é automática; múltiplas exigem seleção em cookie de sessão HTTP-only revalidado contra sessão/RLS. `/admin` exige ADMIN_ADSCOM no banco em cada página/action e permite criar empresas, vincular usuários Auth existentes por UUID como CLIENTE e remover vínculos com confirmação.
+
+A Etapa 08 consolida documentação e executa a suíte existente; resultados e pendências em docs/consolidacao.md. O usuário confirmou a revisão manual da Etapa 07, incluindo seleção após refresh, revogação mesmo com cookie antigo e preservação de Auth/outros vínculos. A validação manual remota de ADMIN_ADSCOM e clientes A/B na Etapa 05 também foi informada pelo usuário. Essas confirmações não são testes remotos executados pelo agente; o ambiente da nova revisão manual não foi especificado.
+
+Há uma migration de fundação, aplicada e validada localmente, sem alterações nas Etapas 05–08. O agente não executou operações remotas. Leia README.md, docs/arquitetura.md, docs/plano-mvp.md, docs/supabase.md, docs/autenticacao.md, docs/dashboard.md e docs/administracao.md antes de alterar. `npm run test:dashboard` inclui HTTP/RLS, dashboard e administração; exige Supabase local e não deve rodar com dev/build concorrente. Não há módulos de negócio nem integrações. Etapa 09 não iniciada.
 
 ## Stack definida
 
@@ -49,6 +53,6 @@ Não implementar por antecipação Google Business Profile, avaliações complet
 - Não declarar a etapa validada antes de executar pgTAP e a suíte HTTP local com sucesso. A validação local passou em 27/09/2026; alterações posteriores em policies exigem nova validação.
 - npm run test:db e npm run test:rls:api são exclusivos de ambiente local descartável. Não usar --linked nem adaptar fixtures para produção.
 - O grafo RLS depende de user_global_roles retornar apenas concessões próprias; ampliar essa policy exige revisar todas as policies dependentes. Não há funções SECURITY DEFINER nesta migration.
-- Clientes Supabase usam somente URL e Publishable Key de .env.local. O proxy renova cookies nas rotas /login e /app. Server Components usam o cliente em leitura; Server Actions usam writeCookies=true. A proteção de /app consulta getUser no servidor.
+- Clientes Supabase usam somente URL e Publishable Key de .env.local. O proxy renova cookies nas rotas /login, /app e /admin. Server Components usam o cliente em leitura; Server Actions usam writeCookies=true. A proteção de /app consulta getUser no servidor.
 - Antes de aplicar migrations remotamente, explicar o destino e as mudanças; revisar histórico e dry-run. Nunca resetar o remoto.
-- A Etapa 04 mínima foi autorizada e implementada. Não avançar para área administrativa, recuperação de senha, cadastro, callbacks ou módulos de negócio sem novo escopo. Leia docs/autenticacao.md.
+- Login e administração mínima foram autorizados e implementados. Não avançar para recuperação de senha, cadastro Auth, convites, callbacks ou módulos de negócio sem novo escopo. Leia docs/autenticacao.md.

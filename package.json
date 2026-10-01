@@ -17,7 +17,8 @@
     "db:stop": "supabase stop",
     "db:migrate": "supabase migration up --local",
     "test:db": "supabase test db --local",
-    "test:rls:api": "node scripts/test-rls-api.mjs"
+    "test:rls:api": "node scripts/test-rls-api.mjs",
+    "test:dashboard": "node scripts/test-rls-api.mjs --dashboard"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",

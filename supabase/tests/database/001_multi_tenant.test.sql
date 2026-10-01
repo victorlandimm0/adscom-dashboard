@@ -60,6 +60,10 @@ select is((select count(*) from public.organizations where id='20000000-0000-400
 
 select is((select count(*) from public.organizations), 1::bigint, 'B ve sua empresa');
 
+select is((select name from public.organizations where id='20000000-0000-4000-8000-000000000002'), 'TESTE RLS B', 'B consulta o nome da propria empresa por UUID');
+
+select is((select count(*) from public.organization_members where organization_id='20000000-0000-4000-8000-000000000001'), 0::bigint, 'B nao descobre vinculos da empresa A por UUID');
+
 reset role;
 
 set local request.jwt.claims = '{"sub":"10000000-0000-4000-8000-000000000003","role":"authenticated"}';
@@ -75,6 +79,10 @@ set local request.jwt.claims = '{"sub":"10000000-0000-4000-8000-000000000004","r
 set local role authenticated;
 
 select is((select count(*) from public.organizations), 0::bigint, 'Sem vinculo nao ve empresas');
+
+select is((select count(*) from public.organization_members), 0::bigint, 'Sem vinculo nao le memberships de terceiros');
+
+select is((select count(*) from public.organizations where id='20000000-0000-4000-8000-000000000001'), 0::bigint, 'Sem vinculo nao acessa empresa por UUID conhecido');
 
 reset role;
 
