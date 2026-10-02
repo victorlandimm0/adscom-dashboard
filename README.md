@@ -36,7 +36,7 @@ Sem vínculo nem papel global, a conta não acessa empresas. A aplicação usa a
 | `npm run lint` | ESLint, sem warnings permitidos |
 | `npm run typecheck` | Tipos de rotas e TypeScript estrito |
 | `npm test` | Configuração, credenciais, seleção de empresa e entradas administrativas |
-| `npm run test:db` | 52 asserções pgTAP no Supabase local |
+| `npm run test:db` | 90 asserções pgTAP no Supabase local (fundação e unidades) |
 | `npm run test:rls:api` | Isolamento pela API com JWTs de usuários locais |
 | `npm run test:dashboard` | HTTP/RLS, login, shell, seleção, logout **e administração** |
 | `npm run build` | Build de produção |

@@ -1,5 +1,53 @@
 # Etapa 03 — operação e validação da fundação de dados
 
+## Etapa 09B — fundação de unidades (01/10/2026)
+
+Migration aditiva: `supabase/migrations/20261001000100_locations_foundation.sql`. Aplicada **somente no Supabase local** por `npm run db:migrate` (`migration up --local`), após conferir o histórico local. A migration de 20260926000100 permanece intacta. Não houve SQL, aplicação ou inspeção remota. Os registros de migration única e resultados das etapas anteriores abaixo são históricos.
+
+Organization continua sendo tenant, com 0..N locations. A migration não insere dados, não exige unidade para empresas existentes e não cria unidade fictícia para empresas digitais. Segue a [arquitetura aprovada na 09A](modelo-empresa-unidades.md), preservada sem reescrita.
+
+| Coluna de public.locations | Definição |
+| --- | --- |
+| id | uuid PRIMARY KEY DEFAULT gen_random_uuid() |
+| organization_id | uuid NOT NULL REFERENCES public.organizations(id) ON DELETE RESTRICT |
+| name | text NOT NULL CHECK (length(btrim(name)) > 0 AND length(name) <= 160) |
+| created_at | timestamptz NOT NULL DEFAULT now() |
+
+Não há normalização automática do nome nem unicidade por nome. Foram criados somente os índices das constraints: `locations_pkey` sobre id e `locations_organization_id_id_key` UNIQUE sobre (organization_id, id). O segundo atende consultas começando pela empresa e oferece alvo para futuras FKs compostas; não há índice redundante isolado de organization_id. Nenhuma tabela de recurso futuro foi criada pela migration.
+
+A FK RESTRICT impede excluir organization com locations, inclusive em operação privilegiada. A API comum continua sem DELETE de organizations. Também não recebe DELETE de locations nesta fase, coerente com a decisão da 09A de adiar exclusão física; admin pode criar e editar nome, não remover ou transferir unidade. Não há cascade, soft delete ou status acrescentado.
+
+### Grants e policies
+
+RLS habilitada em locations; privilégios anteriores de PUBLIC, anon e authenticated revogados somente nessa nova tabela. Authenticated recebe SELECT, INSERT apenas em (organization_id, name) e UPDATE apenas em name. Os grants não concedem autorização por si: policies restringem as linhas. IDs, tenant e data não podem ser alterados pela API comum; id/data também não podem ser fornecidos no INSERT. Sem DELETE, TRUNCATE ou escrita do CLIENTE.
+
+- `locations_select_member_or_admin`: lê quando existe membership próprio da organization, identificado por auth.uid(), ou concessão própria ADMIN_ADSCOM.
+- `locations_insert_admin`: WITH CHECK de ADMIN_ADSCOM consultado no banco.
+- `locations_update_admin`: USING e WITH CHECK de ADMIN_ADSCOM consultado no banco.
+
+O grafo segue sem ciclos: locations consulta memberships/papéis; esses não passam a consultar locations. Não há funções SECURITY DEFINER, service_role, location_members ou papéis por unidade. Revogação de membership/papel retira acesso na consulta seguinte, sem depender de atualização de papel no JWT. CLIENTE lê todas as unidades de suas empresas e não escreve; admin usa sessão normal com acesso global de leitura/criação/edição de nome; anônimo não lê nem escreve.
+
+### Testes e validação da 09B
+
+`002_locations.test.sql` acrescenta 38 asserções pgTAP, com fixtures em transação e rollback. As 52 anteriores em `001_multi_tenant.test.sql` permanecem intactas (90 no total). Cobrem organização com zero unidades, criação e defaults, A/B por UUID, sem vínculo, admin sem membership, anônimo, escrita proibida, edição administrativa, FK, campos obrigatórios, limites do nome, ID/data/tenant protegidos, DELETE bloqueado, RESTRICT e revogações.
+
+Uma sonda de FK composta é criada somente no schema de teste `locations_test`, dentro da transação, e removida pelo rollback. Verifica par correto e INSERT/UPDATE cross-organization recusados; não é uma tabela de negócio implantada. A primeira execução parou após 27 novas asserções porque a sonda usava TEMP TABLE referenciando tabela permanente, combinação não aceita pelo PostgreSQL. O teste foi corrigido para schema transacional não exposto; a repetição passou sem alteração da migration.
+
+`scripts/test-locations-api.mjs` é chamado pelo harness existente `test:rls:api`, também incluído em `test:dashboard`. Usa as mesmas fixtures locais e JWTs normais: duas unidades por A/B, leitura própria e UUID alheio, multiempresa/sem vínculo, anônimo, admin criando/editando, FK/CHECK e grants bloqueando escrita indevida. A revogação de cliente/admin no harness também verifica locations. A limpeza remove primeiro as unidades apenas das organizações desta execução, depois vínculos/empresas/usuários. Não lê .env.local nem aceita URL remota.
+
+| Validação | Resultado desta etapa |
+| --- | --- |
+| npm run lint | Passou |
+| npm run typecheck | Passou |
+| npm test | 13/13 passaram |
+| npm run test:db | 90/90 passaram após correção da sonda de teste |
+| npm run test:rls:api | Passou; fixtures locais removidas |
+| npm run test:dashboard | Passou; administração, dashboard e HTTP/RLS; fixtures removidas |
+| npm run build | Passou após dashboard; build habitual restaurado |
+| git diff --check | Passou; arquivos novos também conferidos sem staging |
+
+Consulta local final confirmou locations=0, schema locations_test ausente e zero usuários das fixtures HTTP. Docker/Supabase local já estavam em execução; não houve reset nem instalação. A CLI informou atualização disponível, mas não foi atualizada. Nenhuma mudança em src/, tipos da aplicação, cookies ou interface foi necessária. Não há tela/cadastro/seletor de unidade no produto. Endereço, contatos, dados fiscais, geolocalização, timezone, status, is_primary, slug, updated_at, horários, Google, avaliações e NFC seguem adiados. Etapa 10 não iniciada. Sem staging, commit ou push; checkpoint ddad923 preservado.
+
 ## Estado real
 
 Etapa 08: a migration única permanece intacta. A suíte atual inclui 52 asserções pgTAP, HTTP/RLS e administração/dashboard; resultados da reexecução em [consolidação](consolidacao.md). O usuário informou validação manual remota na Etapa 05 e revisão funcional na Etapa 07. O agente não inspecionou nem alterou o remoto; não se infere o histórico remoto a partir do checkout. Os parágrafos seguintes registram as execuções locais anteriores.
@@ -65,7 +113,7 @@ npm run db:stop
 
 ## Testes de isolamento
 
-`npm run test:db` contém 52 asserções (48 originais e quatro da Etapa 05) e executa `supabase/tests/database/001_multi_tenant.test.sql` via pgTAP. A preparação de fixtures ocorre com o proprietário local; as verificações de acesso fazem SET LOCAL ROLE authenticated/anon e definem request.jwt.claims para simular o contexto do Auth. Somente preparação, integridade e limpeza usam o proprietário. O arquivo termina em ROLLBACK; fixtures não persistem. Ele não deve ser executado em produção nem com `--linked`.
+`npm run test:db` executa os dois arquivos SQL e soma 90 asserções após a Etapa 09B. A suíte original contém 52 asserções (48 originais e quatro da Etapa 05) em `supabase/tests/database/001_multi_tenant.test.sql` via pgTAP. A preparação de fixtures ocorre com o proprietário local; as verificações de acesso fazem SET LOCAL ROLE authenticated/anon e definem request.jwt.claims para simular o contexto do Auth. Somente preparação, integridade e limpeza usam o proprietário. O arquivo termina em ROLLBACK; fixtures não persistem. Ele não deve ser executado em produção nem com `--linked`.
 
 `npm run test:rls:api` usa Supabase Auth local para criar seis usuários temporários `rls-<UUID>-<papel>@example.test` com senhas aleatórias apenas em memória. As requisições usam chave pública local e JWTs emitidos pelo Auth, sem service_role. O script não lê `.env.local`, fixa a API em 127.0.0.1:54321, exige contexto Docker local e usa somente o contêiner supabase_db_adscom-dashboard. Obtém a chave pública via status da CLI em memória, sem exibir sua saída.
 

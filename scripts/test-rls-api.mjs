@@ -53,7 +53,7 @@ try {
   };
   const anonymous = newClient();
   // Garante que as migrations existem ANTES de criar usuários.
-  sql("select count(*) from public.organizations; select count(*) from public.user_global_roles;");
+  sql("select count(*) from public.organizations; select count(*) from public.user_global_roles; select count(*) from public.locations;");
   fixturesStarted = true;
   const users = {};
   for (const name of ["a", "b", "multi", "none", "admin", "admin2"]) {
@@ -81,6 +81,9 @@ try {
   const a = users.a.client;
   const admin = users.admin.client;
   const tokenBefore = (await a.auth.getSession()).data.session.access_token;
+  // Unidades usam as mesmas identidades, JWTs e limpeza exclusivamente locais.
+  const { testLocations } = await import("./test-locations-api.mjs");
+  await testLocations({ users, orgA, orgB, anonymous });
   // Exercita as mesmas leituras de papel, vínculo e empresa usadas por /app.
   for (const [name, expected] of [["a", [orgA]], ["b", [orgB]], ["multi", [orgA, orgB]], ["none", []], ["admin", [orgA, orgB]]]) {
     const { client, id: userId } = users[name];
@@ -114,6 +117,7 @@ try {
   forbidden(await anonymous.from("organizations").select("id")); passed("H: anônimo sem acesso");
   success(await admin.from("organization_members").delete().eq("organization_id", orgA).eq("user_id", users.a.id));
   assert.deepEqual(success(await a.from("organizations").select("id")), []);
+  assert.deepEqual(success(await a.from("locations").select("id").eq("organization_id", orgA)), []);
   assert.equal((await a.auth.getSession()).data.session.access_token, tokenBefore); passed("I: revogação efetiva com o mesmo JWT");
 
   assert.deepEqual(success(await users.b.client.from("organizations").select("id")).map(r => r.id), [orgB]);
@@ -129,6 +133,9 @@ try {
   passed("Escritas proibidas e leitura restrita de papéis");
   sql(`delete from public.user_global_roles where user_id=${id("admin")};`);
   assert.deepEqual(success(await admin.from("organizations").select("id")), []);
+  assert.deepEqual(success(await admin.from("locations").select("id").in("organization_id", [orgA, orgB])), []);
+  forbidden(await admin.from("locations").insert({ organization_id: orgA, name: "TESTE revogado" }));
+  assert.deepEqual(success(await admin.from("locations").update({ name: "TESTE revogado" }).eq("organization_id", orgA).select("id")), []);
   passed("Revogação de administrador sem renovar sessão");
 } catch {
   // Não imprimir erros SDK/CLI completos: podem conter chaves ou sessões.
@@ -142,6 +149,7 @@ try {
       const organizations = organizationIds.map(uuidLiteral).join(",");
       const users = userIds.map(uuidLiteral).join(",");
       sql(`begin;
+        delete from public.locations where organization_id in (${organizations});
         delete from public.organization_members where organization_id in (${organizations});
         delete from public.organizations where id in (${organizations}) or name in ('TESTE API ${runId} C','TESTE API ${runId} negado');
         ${users ? `delete from auth.users where id in (${users});` : ""}
