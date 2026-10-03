@@ -1,4 +1,4 @@
-# Administração mínima — Etapa 07
+# Administração mínima — Etapas 07 e 10A
 
 Área para ADMIN_ADSCOM cadastrar empresas e gerenciar vínculos de usuários Auth existentes. Implementação sem dependências novas, migrations, alterações de grants/policies ou chave privilegiada. Não inclui edição/exclusão de empresas, cadastro/exclusão de usuários Auth, convites, e-mails, senhas ou módulos de negócio.
 
@@ -7,7 +7,7 @@
 - `/app`: o administrador encontra o link “Administração”; clientes não recebem esse link.
 - `/admin`: visão geral administrativa, com navegação para Empresas.
 - `/admin/empresas`: lista nome, UUID e data de criação; formulário “Nova empresa” aceita somente nome.
-- `/admin/empresas/[id]`: detalhe, vínculos, formulário por UUID e remoção com confirmação.
+- `/admin/empresas/[id]`: detalhe, unidades (listagem/cadastro/renomeação), vínculos, formulário por UUID e remoção de vínculo com confirmação.
 
 O shell mostra ADSCOM Admin, usuário autenticado, Visão geral, Empresas, Voltar ao Dashboard e Sair. O logout reutiliza a action existente e limpa também o cookie de empresa. O proxy foi estendido para `/admin/:path*`, preservando renovação de sessão e headers privados/no-store.
 
@@ -38,7 +38,46 @@ Remoção: checkbox explícito em cada vínculo, sem marcação prévia, informa
 
 IDs de detalhe malformados, inexistentes ou inacessíveis usam `notFound()` sem revelar dados. Erros de consulta exibem mensagem genérica; lista vazia só é exibida se a consulta tiver sucesso. Erros brutos do SDK não são mostrados. Feedback por query string é somente apresentação, nunca prova de autorização ou de estado atual.
 
-## Informações e limitações
+## Unidades — Etapa 10A
+
+A seção “Unidades” da empresa lista somente suas locations, ordenadas por nome e ID, com o nome como identificação principal. Zero unidades é válido e mostra “Nenhuma unidade cadastrada.”; erro de consulta tem mensagem própria. O cadastro pede somente nome e a renomeação usa um formulário simples por unidade, sem rotas adicionais.
+
+`createLocation` e `renameLocation` reutilizam `requireAdmin`, o validador administrativo de nomes (`readCompanyName`), a checagem de UUID e `AdminFeedback`. O ID da empresa é vinculado à action na página renderizada; não existe campo editável de empresa. Esse argumento continua sendo entrada não confiável: o servidor valida UUID, sessão, papel global e existência/acesso à empresa a cada mutation. Campos adicionais enviados no formulário são ignorados. O cookie de seleção do Dashboard não participa dessa autorização.
+
+A criação grava somente organization_id validado e name com trim (1–160 caracteres). A renomeação valida também location_id e executa UPDATE somente de name, filtrando simultaneamente id e organization_id. Zero linhas atualizadas retorna “Registro indisponível ou sem acesso”, igualmente para unidade inexistente e unidade de outra empresa, sem revelar seu nome. Empresa inválida/inexistente no detalhe usa notFound; nas actions gera feedback de ID inválido/registro indisponível. Falhas do banco têm mensagem genérica.
+
+As queries usam sessão normal e RLS existente. ADMIN_ADSCOM administra unidades globalmente, mas a edição deve corresponder ao par empresa/unidade da página. CLIENTE e administrador revogado são redirecionados para `/app`; anônimo, para `/login`, inclusive em POST direto. CLIENTE mantém apenas o SELECT autorizado pela RLS, sem nova interface no Dashboard.
+
+Não há exclusão, arquivamento, transferência, novos campos, permissão por unidade ou unicidade de nome. ID, organization_id e created_at não são editados. Nenhuma migration, policy ou grant foi criada/alterada. A Etapa 10A não conclui toda a Etapa 10; 10B e módulos de negócio não foram iniciados.
+
+`LocationSubmit` usa `useFormStatus` apenas nos dois formulários de unidades: desabilita o botão e mostra “Salvando…” durante o envio. Isso reduz cliques repetidos com JavaScript, mas não é idempotência: múltiplas requisições independentes podem criar nomes repetidos, permitidos pelo modelo. Idempotência global e paginação continuam pendentes.
+
+`scripts/test-admin-locations-http.mjs` integra `test:dashboard` pelo teste administrativo existente. Exercita formulários SSR reais, persistência, nomes vazios/longos/limite 160, UUIDs e empresas/unidades inexistentes, argumento de empresa adulterado, contexto A com unidade B, campos imutáveis, bloqueio de clientes/anônimo e revogação de admin. Usa exclusivamente as fixtures locais do harness, com limpeza em finally; não acessa o Supabase remoto.
+
+### Validação da Etapa 10A em 03/10/2026
+
+- Lint, TypeScript, 13 testes unitários, build e `git diff --check`: passaram.
+- `test:db`: 90/90 asserções pgTAP passaram nas duas execuções da retomada.
+- `test:rls:api`: passou nas duas execuções, incluindo isolamento, grants, revogações e locations com JWTs comuns.
+- `test:dashboard`: passou nas duas execuções, incluindo shell/login/seleção/logout, administração anterior e novos testes HTTP de unidades. Foram confirmados cadastro/renomeação persistidos, listagem A/B isolada, contexto A com unidade B recusado, campos imutáveis, nomes/UUIDs inválidos, registros inexistentes, nomes repetidos permitidos e bloqueio de clientes/anônimo/admin revogado.
+- As fixtures temporárias foram removidas pelo harness em cada execução. A conferência final por SELECT no banco local retornou zero empresas TESTE API/ADMIN, zero unidades TESTE e zero usuários Auth rls-…@example.test. pgTAP preservou sua execução transacional.
+- O bloqueio inicial era ambiental: o Docker Desktop falhou no socket local `docker-secrets-engine/engine.sock`. Após o usuário restabelecer Docker/Supabase local, a regressão passou sem correção de código ou testes. Nenhum reset, mudança de migration/policy/grant ou operação remota foi realizado.
+- A rodada final repetiu lint, TypeScript, unitários, pgTAP, HTTP/RLS, dashboard/administração/unidades e build. O build habitual foi regenerado depois do build local do harness. Nenhum teste foi reduzido, removido ou ignorado.
+
+A validação automatizada local está concluída. A Etapa 10A continua aguardando revisão humana e teste manual no navegador para aprovação. Na retomada, somente este registro documental foi atualizado; não houve commit/push e o HEAD aprovado permanece em `1b7f3f4`.
+
+### Roteiro manual da Etapa 10A — pendente de revisão
+
+1. No ambiente de teste escolhido, entre como ADMIN_ADSCOM, abra `/admin` → Empresas → Ver empresa na Empresa A.
+2. Confira a seção Unidades; em empresa sem unidades deve aparecer “Nenhuma unidade cadastrada.”.
+3. Cadastre uma unidade de teste com nome identificável. Confira “Unidade cadastrada.” e o nome na lista; atualize o navegador e confira persistência.
+4. Altere o nome no formulário da unidade e clique “Salvar nome”. Confira “Unidade atualizada.”; recarregue e confira o novo nome. Abra a Empresa B e confirme que a unidade de A não aparece.
+5. Confira labels, navegação por teclado, foco, largura mobile e estado “Salvando…” em envio pendente. Campos vazios não devem ser aceitos.
+6. Saia e entre como CLIENTE. Abra `/admin` e o detalhe de A diretamente: deve retornar a `/app`. Confira que o Dashboard não ganhou gestão de unidades.
+
+O agente não executa esse roteiro no navegador. Não há botão de exclusão; para ensaios descartáveis, prefira o ambiente local com limpeza controlada das fixtures.
+
+## Limitações administrativas existentes
 
 Memberships exibem apenas user_id, role e created_at. E-mail de outro usuário e perfil Auth não são consultados, e não existe tabela profiles. O administrador precisa obter o UUID correto no gerenciamento do Supabase Auth. Datas são exibidas em português no fuso America/Sao_Paulo.
 

@@ -4,6 +4,8 @@ SaaS B2B multiempresa para acompanhar a presença e a evolução digital dos cli
 
 A fundação das Etapas 01–07 está implementada: login/logout, sessão SSR, isolamento por RLS, contexto de empresa, shell do dashboard e administração mínima. A Etapa 08 consolida documentação e validações; veja o [relatório](docs/consolidacao.md). Presença, Avaliações, NFC, Relatórios e Configurações continuam placeholders. Não há integrações ou métricas de negócio.
 
+A Etapa 09 estabeleceu Organization → Locations, mantendo a empresa como tenant. A Etapa 10A acrescenta listagem, cadastro e renomeação de unidades na empresa administrativa, exclusivos de ADMIN_ADSCOM. Não há exclusão, transferência ou gestão de unidades pelo cliente. Fluxo e roteiro de revisão em [administração](docs/administracao.md).
+
 ## Executar localmente
 
 Requisitos: Node **24.14.1** (`.nvmrc`), npm **11.11.0** e, para banco/testes locais, Docker Desktop com contêineres Linux em execução. Dependências diretas têm versões exatas e lockfile.
@@ -51,7 +53,7 @@ Next.js 16.3.6 (App Router), React 19.3.0, TypeScript 5.9.3, Tailwind 4.3.3, Sup
 ```text
 src/app/(auth)/login/       # login e Server Action
 src/app/(cliente)/app/     # shell e seis páginas placeholder
-src/app/(admin)/admin/     # empresas e vínculos
+src/app/(admin)/admin/     # empresas, vínculos e unidades
 src/lib/                   # auth, Supabase, contexto de empresa, autorização admin
 src/proxy.ts               # renovação de sessão nas áreas autenticadas
 supabase/migrations/       # fundação SQL versionada

@@ -3,8 +3,9 @@ import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/admin/access";
 import { isOrganizationId } from "@/lib/organizations/selection";
 import { selectOrganization } from "@/app/(cliente)/app/actions";
-import { linkMember, removeMember } from "../../actions";
+import { createLocation, renameLocation, linkMember, removeMember } from "../../actions";
 import { AdminFeedback } from "../../feedback";
+import { LocationSubmit } from "../../location-submit";
 
 export default async function CompanyPage({ params, searchParams }: {
   params: Promise<{ id: string }>; searchParams: Promise<{ status?: string }>;
@@ -19,6 +20,8 @@ export default async function CompanyPage({ params, searchParams }: {
   const company = result.data;
   const members = await supabase.from("organization_members").select("user_id, role, created_at")
     .eq("organization_id", company.id).order("created_at").order("user_id");
+  const locations = await supabase.from("locations").select("id, name")
+    .eq("organization_id", company.id).order("name").order("id");
   return (
     <>
       <Link href="/admin/empresas" className="text-sm font-medium text-teal-800 underline">Voltar às empresas</Link>
@@ -32,6 +35,29 @@ export default async function CompanyPage({ params, searchParams }: {
         <input type="hidden" name="organization_id" value={company.id} />
         <button type="submit" className="rounded-lg border border-teal-800 px-4 py-2 font-medium text-teal-800 hover:bg-teal-50">Abrir no Dashboard</button>
       </form>
+      <section aria-labelledby="locations" className="mt-8">
+        <h2 id="locations" className="text-xl font-semibold">Unidades</h2>
+        {locations.error ? <p role="alert" className="mt-4 text-red-700">Não foi possível carregar as unidades. Tente novamente.</p> : locations.data.length === 0 ? <p className="mt-4 text-slate-600">Nenhuma unidade cadastrada.</p> : (
+          <ul className="mt-4 space-y-4">
+            {locations.data.map((location) => (
+              <li key={location.id} className="rounded-xl border border-slate-200 bg-white p-6">
+                <h3 className="break-words font-medium">{location.name}</h3>
+                <form action={renameLocation.bind(null, company.id)} className="mt-4 space-y-3">
+                  <input type="hidden" name="location_id" value={location.id} />
+                  <label htmlFor={`location-${location.id}`} className="block text-sm font-medium">Novo nome da unidade {location.name}</label>
+                  <input id={`location-${location.id}`} name="name" defaultValue={location.name} required maxLength={160} className="w-full rounded-lg border border-slate-300 px-3 py-2" />
+                  <LocationSubmit>Salvar nome</LocationSubmit>
+                </form>
+              </li>
+            ))}
+          </ul>
+        )}
+        <form action={createLocation.bind(null, company.id)} className="mt-4 space-y-3 rounded-xl border border-slate-200 bg-white p-6">
+          <label htmlFor="location-name" className="block text-sm font-medium">Nome da nova unidade</label>
+          <input id="location-name" name="name" required maxLength={160} className="w-full rounded-lg border border-slate-300 px-3 py-2" />
+          <LocationSubmit>Cadastrar unidade</LocationSubmit>
+        </form>
+      </section>
       <section aria-labelledby="link-member" className="mt-8 rounded-xl border border-slate-200 bg-white p-6">
         <h2 id="link-member" className="text-xl font-semibold">Vincular usuário existente</h2>
         <p id="user-help" className="mt-2 text-sm text-slate-600">Informe o UUID de um usuário já cadastrado no Supabase Auth. O vínculo terá papel CLIENTE; nenhuma conta será criada.</p>

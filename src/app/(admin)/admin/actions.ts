@@ -57,3 +57,37 @@ export async function removeMember(formData: FormData): Promise<void> {
   revalidatePath("/app", "layout");
   redirect(`${path}?status=removed`);
 }
+
+export async function createLocation(organizationId: string, formData: FormData): Promise<void> {
+  const { supabase } = await requireAdmin();
+  if (!isOrganizationId(organizationId)) redirect("/admin/empresas?status=invalid-id");
+  const path = `/admin/empresas/${organizationId}`;
+  const organization = await supabase.from("organizations").select("id").eq("id", organizationId).maybeSingle();
+  if (organization.error || !organization.data) redirect("/admin/empresas?status=unavailable");
+  const name = readCompanyName(formData.get("name"));
+  if (!name) redirect(`${path}?status=invalid-location-name`);
+  // A empresa vem do contexto vinculado à action; campos extras do formulário são ignorados.
+  const result = await supabase.from("locations").insert({ organization_id: organization.data.id, name }).select("id").single();
+  if (result.error) redirect(`${path}?status=failed`);
+  revalidatePath(path);
+  redirect(`${path}?status=location-created`);
+}
+
+export async function renameLocation(organizationId: string, formData: FormData): Promise<void> {
+  const { supabase } = await requireAdmin();
+  if (!isOrganizationId(organizationId)) redirect("/admin/empresas?status=invalid-id");
+  const path = `/admin/empresas/${organizationId}`;
+  const organization = await supabase.from("organizations").select("id").eq("id", organizationId).maybeSingle();
+  if (organization.error || !organization.data) redirect("/admin/empresas?status=unavailable");
+  const locationId = formData.get("location_id");
+  if (!isOrganizationId(locationId)) redirect(`${path}?status=invalid-id`);
+  const name = readCompanyName(formData.get("name"));
+  if (!name) redirect(`${path}?status=invalid-location-name`);
+  // Mesmo ADMIN global precisa respeitar o par empresa/unidade do contexto aberto.
+  const result = await supabase.from("locations").update({ name })
+    .eq("organization_id", organization.data.id).eq("id", locationId).select("id");
+  if (result.error) redirect(`${path}?status=failed`);
+  if (!result.data.length) redirect(`${path}?status=unavailable`);
+  revalidatePath(path);
+  redirect(`${path}?status=location-updated`);
+}

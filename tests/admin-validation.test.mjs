@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readCompanyName, readMembership } from "../src/lib/admin/validation.ts";
 
-test("nome de empresa exige texto, trim e limite de 160 caracteres", () => {
+test("nome administrativo de empresa/unidade exige texto, trim e limite de 160 caracteres", () => {
   assert.equal(readCompanyName("  Empresa A  "), "Empresa A");
   assert.equal(readCompanyName("a".repeat(160)), "a".repeat(160));
+  assert.equal(readCompanyName("  Águas Claras  "), "Águas Claras");
+  assert.equal(readCompanyName(`  ${"a".repeat(160)}  `), "a".repeat(160));
   for (const value of [null, "", "   ", "a".repeat(161), new Blob(["empresa"])]) assert.equal(readCompanyName(value), null);
 });
 
