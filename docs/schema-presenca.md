@@ -1,5 +1,32 @@
 # Desenho técnico de Presença Digital — Etapas 11B.1 e 11B.1.1
 
+## Implementação local — Etapa 11B.2 (03/10/2026)
+
+Contrato abaixo implementado em `supabase/migrations/20261003000100_digital_channels_foundation.sql`, aplicada **somente no Supabase local** por `npm run db:migrate` (`migration up --local`). Pré-voo: main, HEAD ba8c6c7, working tree limpo; banco local com as duas migrations anteriores, UNIQUE de locations confirmada e digital_channels ausente. Nenhum reset, operação remota ou mudança nas migrations históricas.
+
+São exatamente sete colunas, dois CHECKs, duas FKs, RLS com as três policies descritas e grants por coluna. A FK composta usa MATCH SIMPLE, DELETE RESTRICT, UPDATE NO ACTION e não é deferrable; a FK direta protege organization quando location_id é NULL. O índice não único (organization_id, location_id) foi reavaliado e mantido: não havia equivalente na tabela filha e ele atende as consultas previstas e referências da FK; somente ele e a PK foram criados.
+
+A validação textual de URL exige prefixo literal `https://`, autoridade não vazia e sem `@`, ausência de whitespace/controles literais e comprimento de 1–2048 caracteres. Rejeita em vez de aplicar trim. Não verifica provedor, disponibilidade ou autenticidade e não é parser universal. Nenhuma URL é acessada pelos testes. Todos os canais continuam MANUAL por contrato, sem source persistido.
+
+`public.set_digital_channels_updated_at()` é SECURITY INVOKER, com search_path pg_catalog e EXECUTE direto revogado de PUBLIC/anon/authenticated. O trigger `digital_channels_set_updated_at`, BEFORE UPDATE FOR EACH ROW, usa IS DISTINCT FROM em url/location_id: mudança real recebe statement_timestamp(); no-op mantém a data anterior, inclusive com NULL. INSERT usa now(). API não fornece id/datas nem altera tenant/type; somente ADMIN atualiza location_id/url. O funcionamento real do trigger sem grants de escrita de updated_at/EXECUTE direto foi testado.
+
+Validação concluída localmente:
+
+- pgTAP: **237/237** (90 existentes intactos + **147 novos** em `003_digital_channels.test.sql`), cobrindo catálogo, tipos, defaults, constraints, FKs, índices, grants de tabela/coluna, policies, trigger e operações com roles comuns; fixtures em rollback.
+- HTTP/JWT: matriz **A–X passou** em `test-digital-channels-api.mjs`, integrado ao harness existente. N e revogação administrativa são comprovados no harness com comparação do mesmo JWT. Inclui UUID alheio, 0/N unidades, três types institucionais, duplicatas, INSERT/UPDATE cross-tenant negados, correções de unidade/NULL, timestamps/no-op, imutabilidade e fronteiras de URL. Requisições usam sessões reais e chave pública locais.
+- Y/regressão: lint sem warnings, TypeScript, **13/13 unitários**, HTTP/RLS e locations existentes, dashboard, administração e unidades administrativas passaram. Build habitual passou após o build local do harness; git diff --check passou.
+- A limpeza HTTP remove canais antes de locations e demais fixtures, com conferência de contagens por UUID. Auditoria local final: zero canais, unidades, empresas, memberships, concessões e usuários Auth, como no ambiente vazio inicial. Não foram deixadas fixtures permanentes.
+
+A primeira execução pgTAP encontrou erro de uma fixture: o prefixo da URL tinha 21 caracteres, mas o sufixo fora calculado como se tivesse 20. O teste passou após calcular o sufixo a partir do comprimento real (2048/2049); a migration não mudou. As asserções SQL de mudança de unidade também verificam statement_timestamp() no próprio UPDATE RETURNING. A tentativa inicial dos unitários recebeu spawn EPERM do sandbox; repetição com subprocessos permitidos passou sem alterar código/testes. O acesso ao Docker local exigiu a mesma permissão ambiental.
+
+Nenhum conflito arquitetural novo: a associação editável segue a decisão explícita da 11B.1.1, que substitui a restrição anterior de escopo. Sem UI, integrações, exclusão ou arquivamento. Aplicação remota e administração visual continuam pendentes de autorização própria; 11C não iniciada. Sem commit/push nesta entrega.
+
+Fechamento após interrupção, em 04/10/2026: main e HEAD ba8c6c7 reconfirmados, com os mesmos sete arquivos da etapa e staging vazio. Revisados o diff e os arquivos novos; migrations históricas, src/ e testes anteriores intactos. Auditoria somente leitura no container local reconfirmou histórico, sete colunas, constraints/FKs, índices, RLS/policies, grants por coluna e função/trigger conforme este desenho, além de zero registros nas cinco tabelas públicas e em auth.users. As suítes acima já haviam terminado com sucesso antes da interrupção; não foram reexecutadas nem houve reimplementação. git diff --check e conferência adicional de whitespace/conflitos nos arquivos novos passaram. Nesta retomada, somente este registro documental foi acrescentado; nenhuma operação remota ou commit.
+
+## Registro do desenho aprovado (11B.1 / 11B.1.1)
+
+As seções seguintes preservam o desenho e os critérios aprovados; expressões de implementação futura descrevem aquele checkpoint. O resultado efetivamente executado na 11B.2 está registrado acima.
+
 Data: 03/10/2026. **Decisões técnicas incorporadas na 11B.1.1; schema não implementado.** Pré-voo desta revisão: branch `main`, HEAD `9f215f9` (`docs: define company presence architecture`); somente `?? docs/schema-presenca.md`, sem alterações staged. Somente este documento é atualizado.
 
 ## 1. Objetivo e fontes

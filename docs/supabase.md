@@ -1,5 +1,21 @@
 # Etapa 03 — operação e validação da fundação de dados
 
+## Etapa 11B.2 — fundação local de Presença (03/10/2026)
+
+Nova migration incremental: `20261003000100_digital_channels_foundation.sql`, aplicada por `npm run db:migrate` **somente no ambiente local**, sem reset. Histórico local final: 20260926000100, 20261001000100 e 20261003000100. As duas migrations anteriores permanecem intactas; nenhuma operação no Supabase remoto foi executada nesta etapa.
+
+`public.digital_channels` implementa as sete colunas aprovadas: id, organization_id obrigatório, location_id opcional, type, url, created_at e updated_at. PK UUID automática; type text + CHECK (SITE, WHATSAPP, GOOGLE_BUSINESS_PROFILE); URL HTTPS básica de até 2048 caracteres, sem trim silencioso, whitespace/controles ou credenciais na autoridade. FK direta de organization e FK composta (organization_id, location_id) para locations(organization_id, id), ambas DELETE RESTRICT; MATCH SIMPLE permite institucional NULL sem dispensar organization. Sem source, unicidade por tipo, DELETE, soft delete ou integrações.
+
+Authenticated recebe SELECT, INSERT(organization_id, location_id, type, url) e UPDATE(location_id, url). Três policies: `digital_channels_select_member_or_admin`, `digital_channels_insert_admin` e `digital_channels_update_admin`. RLS restringe clientes à leitura de empresas vinculadas e escrita ao ADMIN_ADSCOM consultado no banco; anônimo sem acesso. Tenant, id, type e created_at são imutáveis pela API; updated_at é automático. A função específica SECURITY INVOKER, com search_path fixo e EXECUTE direto revogado, mantém a data por trigger somente quando url/location_id muda. Policies históricas e Auth não foram alterados.
+
+Índices: PK id e B-tree não único (organization_id, location_id), reavaliado após inspeção do schema local e confirmado sem duplicação. Detalhes, justificativas e limites em [schema de Presença](schema-presenca.md).
+
+Validações: `npm run test:db` passou com **237/237** (90 anteriores + **147 novos**); `test:rls:api` e `test:dashboard` passaram com os novos testes de canais e toda a regressão anterior, incluindo administração/unidades. Lint, TypeScript, **13/13 unitários**, build habitual final e git diff --check passaram. A matriz A–X usa JWT real local; Y corresponde à regressão completa. Nenhum teste anterior foi removido ou reduzido.
+
+A fixture de fronteira de URL foi corrigida após a primeira execução pgTAP (comprimento do prefixo calculado em vez de presumido); a migration não precisou mudar. Docker/unitários exigiram permissão ambiental do sandbox, sem correção funcional. Fixtures SQL usam rollback. O harness HTTP agora remove canais antes de unidades e confere ausência por UUID após limpeza. Auditoria final local confirmou zero registros nas cinco tabelas públicas do projeto e em auth.users, como antes da execução. Nenhum dado remoto foi alterado.
+
+Sem interface de Presença, commit/push ou início da 11C. Os registros das etapas anteriores abaixo são históricos, inclusive contagens e referências a migration única.
+
 ## Etapa 09B — fundação de unidades (01/10/2026)
 
 Migration aditiva: `supabase/migrations/20261001000100_locations_foundation.sql`. Aplicada **somente no Supabase local** por `npm run db:migrate` (`migration up --local`), após conferir o histórico local. A migration de 20260926000100 permanece intacta. Não houve SQL, aplicação ou inspeção remota. Os registros de migration única e resultados das etapas anteriores abaixo são históricos.

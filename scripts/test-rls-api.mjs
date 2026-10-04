@@ -53,7 +53,7 @@ try {
   };
   const anonymous = newClient();
   // Garante que as migrations existem ANTES de criar usuários.
-  sql("select count(*) from public.organizations; select count(*) from public.user_global_roles; select count(*) from public.locations;");
+  sql("select count(*) from public.organizations; select count(*) from public.user_global_roles; select count(*) from public.locations; select count(*) from public.digital_channels;");
   fixturesStarted = true;
   const users = {};
   for (const name of ["a", "b", "multi", "none", "admin", "admin2"]) {
@@ -115,10 +115,16 @@ try {
   const created = success(await admin.from("organizations").insert({ name: `TESTE API ${runId} C` }).select("id").single());
   organizationIds.push(created.id); passed("G: administrador cria empresa");
   forbidden(await anonymous.from("organizations").select("id")); passed("H: anônimo sem acesso");
+  const { testDigitalChannels } = await import("./test-digital-channels-api.mjs");
+  const { channelA, channelB } = await testDigitalChannels({ users, orgA, orgB, anonymous, organizationIds, runId });
   success(await admin.from("organization_members").delete().eq("organization_id", orgA).eq("user_id", users.a.id));
   assert.deepEqual(success(await a.from("organizations").select("id")), []);
   assert.deepEqual(success(await a.from("locations").select("id").eq("organization_id", orgA)), []);
+  assert.deepEqual(success(await a.from("digital_channels").select("*").eq("organization_id", orgA)), []);
+  assert.deepEqual(success(await a.from("digital_channels").select("*").eq("id", channelA)), []);
   assert.equal((await a.auth.getSession()).data.session.access_token, tokenBefore); passed("I: revogação efetiva com o mesmo JWT");
+  passed("canais N: membership revogado retira acesso inclusive por UUID, com o mesmo JWT");
+  assert.equal(success(await users.b.client.from("digital_channels").select("id").eq("id", channelB)).length, 1);
 
   assert.deepEqual(success(await users.b.client.from("organizations").select("id")).map(r => r.id), [orgB]);
   assert.equal(success(await users.multi.client.from("organizations").select("id")).length, 2);
@@ -131,11 +137,16 @@ try {
   assert.deepEqual(success(await users.b.client.from("organizations").update({ name: "TESTE INDEVIDO" }).eq("id", orgB).select("id")), []);
   assert.deepEqual(success(await users.b.client.from("organization_members").update({ organization_id: orgA }).eq("user_id", users.b.id).select("user_id")), []);
   passed("Escritas proibidas e leitura restrita de papéis");
+  const adminTokenBefore = (await admin.auth.getSession()).data.session.access_token;
   sql(`delete from public.user_global_roles where user_id=${id("admin")};`);
   assert.deepEqual(success(await admin.from("organizations").select("id")), []);
   assert.deepEqual(success(await admin.from("locations").select("id").in("organization_id", [orgA, orgB])), []);
   forbidden(await admin.from("locations").insert({ organization_id: orgA, name: "TESTE revogado" }));
   assert.deepEqual(success(await admin.from("locations").update({ name: "TESTE revogado" }).eq("organization_id", orgA).select("id")), []);
+  assert.deepEqual(success(await admin.from("digital_channels").select("id")), []);
+  forbidden(await admin.from("digital_channels").insert({ organization_id: orgA, type: "SITE", url: "https://example.test" }));
+  assert.deepEqual(success(await admin.from("digital_channels").update({ location_id: null, url: "https://example.test/revoked" }).eq("id", channelA).select("id")), []);
+  assert.equal((await admin.auth.getSession()).data.session.access_token, adminTokenBefore);
   passed("Revogação de administrador sem renovar sessão");
 } catch {
   // Não imprimir erros SDK/CLI completos: podem conter chaves ou sessões.
@@ -149,11 +160,18 @@ try {
       const organizations = organizationIds.map(uuidLiteral).join(",");
       const users = userIds.map(uuidLiteral).join(",");
       sql(`begin;
+        delete from public.digital_channels where organization_id in (${organizations});
         delete from public.locations where organization_id in (${organizations});
         delete from public.organization_members where organization_id in (${organizations});
         delete from public.organizations where id in (${organizations}) or name in ('TESTE API ${runId} C','TESTE API ${runId} negado');
         ${users ? `delete from auth.users where id in (${users});` : ""}
         commit;`);
+      assert.equal(sql(`select
+        (select count(*) from public.digital_channels where organization_id in (${organizations})) +
+        (select count(*) from public.locations where organization_id in (${organizations})) +
+        (select count(*) from public.organization_members where organization_id in (${organizations})) +
+        (select count(*) from public.organizations where id in (${organizations})) +
+        ${users ? `(select count(*) from auth.users where id in (${users}))` : "0"};`).trim(), "0", "Limpeza de fixtures incompleta");
       console.log("Fixtures locais desta execução removidas.");
     } catch {
       console.error(`Limpeza pendente: fixtures TESTE API ${runId}; usuários rls-${runId}-*@example.test no ambiente LOCAL. Não execute este teste no remoto.`);

@@ -38,8 +38,8 @@ Sem vínculo nem papel global, a conta não acessa empresas. A aplicação usa a
 | `npm run lint` | ESLint, sem warnings permitidos |
 | `npm run typecheck` | Tipos de rotas e TypeScript estrito |
 | `npm test` | Configuração, credenciais, seleção de empresa e entradas administrativas |
-| `npm run test:db` | 90 asserções pgTAP no Supabase local (fundação e unidades) |
-| `npm run test:rls:api` | Isolamento pela API com JWTs de usuários locais |
+| `npm run test:db` | 237 asserções pgTAP no Supabase local (fundação, unidades e canais digitais) |
+| `npm run test:rls:api` | Isolamento pela API com JWTs de usuários locais, incluindo canais digitais |
 | `npm run test:dashboard` | HTTP/RLS, login, shell, seleção, logout **e administração** |
 | `npm run build` | Build de produção |
 | `git diff --check` | Problemas de whitespace no diff rastreado |
