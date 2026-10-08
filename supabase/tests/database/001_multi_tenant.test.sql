@@ -104,9 +104,21 @@ set local request.jwt.claims = '{"sub":"10000000-0000-4000-8000-000000000005","r
 
 set local role authenticated;
 
-select is((select count(*) from public.organizations), 2::bigint, 'F: admin ve A e B sem vinculos');
+-- Admin global pode ler dados preexistentes; compare exatamente as fixtures.
+-- As leituras de clientes e de revogacao continuam sem filtro de fixtures.
+select results_eq(
+  $$select id from public.organizations where id in ('20000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000002') order by id$$,
+  $$values ('20000000-0000-4000-8000-000000000001'::uuid),('20000000-0000-4000-8000-000000000002'::uuid)$$,
+  'F: admin ve exatamente A e B entre as fixtures, sem vinculos');
 
-select is((select count(*) from public.organization_members), 4::bigint, 'Admin ve todos os vinculos');
+select results_eq(
+  $$select organization_id,user_id,role from public.organization_members where organization_id in ('20000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000002') order by organization_id,user_id$$,
+  $$values
+    ('20000000-0000-4000-8000-000000000001'::uuid,'10000000-0000-4000-8000-000000000001'::uuid,'CLIENTE'::text),
+    ('20000000-0000-4000-8000-000000000001'::uuid,'10000000-0000-4000-8000-000000000003'::uuid,'CLIENTE'::text),
+    ('20000000-0000-4000-8000-000000000002'::uuid,'10000000-0000-4000-8000-000000000002'::uuid,'CLIENTE'::text),
+    ('20000000-0000-4000-8000-000000000002'::uuid,'10000000-0000-4000-8000-000000000003'::uuid,'CLIENTE'::text)$$,
+  'Admin ve o conjunto exato de vinculos das fixtures');
 
 select is((select count(*) from public.user_global_roles), 1::bigint, 'Admin le somente a propria concessao');
 

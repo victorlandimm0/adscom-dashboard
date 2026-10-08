@@ -1,4 +1,8 @@
 const messages: Record<string, string> = {
+  "channel-created": "Canal cadastrado.",
+  "channel-updated": "Canal atualizado.",
+  "invalid-channel-type": "Selecione um tipo de canal válido.",
+  "invalid-channel-url": "Informe uma URL HTTPS válida, sem espaços ou credenciais, com até 2048 caracteres.",
   created: "Empresa cadastrada.",
   "location-created": "Unidade cadastrada.",
   "location-updated": "Unidade atualizada.",
@@ -16,6 +20,6 @@ const messages: Record<string, string> = {
 
 export function AdminFeedback({ status }: { status?: string }) {
   if (!status || !Object.hasOwn(messages, status)) return null;
-  const success = ["created", "linked", "removed", "location-created", "location-updated"].includes(status);
+  const success = ["created", "linked", "removed", "location-created", "location-updated", "channel-created", "channel-updated"].includes(status);
   return <p role={success ? "status" : "alert"} className={`mb-6 rounded-lg border bg-white p-4 text-sm ${success ? "border-teal-200 text-teal-900" : "border-red-200 text-red-800"}`}>{messages[status]}</p>;
 }

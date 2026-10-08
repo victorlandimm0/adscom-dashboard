@@ -105,7 +105,13 @@ select throws_ok($$insert into public.digital_channels(organization_id,type,url)
 reset role;
 set local request.jwt.claims = '{"sub":"12000000-0000-4000-8000-000000000003","role":"authenticated"}';
 set local role authenticated;
-select is((select count(*) from public.digital_channels),2::bigint,'Admin sem membership le A e B');
+-- Somente a verificacao do admin global delimita fixtures; clientes/revogacoes nao.
+select results_eq(
+  $$select id,organization_id from public.digital_channels where organization_id in ('22000000-0000-4000-8000-000000000001','22000000-0000-4000-8000-000000000002') order by id$$,
+  $$values
+    ('42000000-0000-4000-8000-000000000001'::uuid,'22000000-0000-4000-8000-000000000001'::uuid),
+    ('42000000-0000-4000-8000-000000000002'::uuid,'22000000-0000-4000-8000-000000000002'::uuid)$$,
+  'Admin sem membership le os canais exatos de A e B');
 select is((select url from public.digital_channels where id='42000000-0000-4000-8000-000000000001'),'https://example.test/a','Tentativas do cliente preservaram URL');
 select is((select location_id::text from public.digital_channels where id='42000000-0000-4000-8000-000000000001'),'32000000-0000-4000-8000-000000000001','Tentativas do cliente preservaram location');
 select is((select updated_at from public.digital_channels where id='42000000-0000-4000-8000-000000000001'),'2000-01-01'::timestamptz,'Tentativas do cliente preservaram timestamp');
@@ -136,7 +142,7 @@ select throws_ok($sql$insert into public.digital_channels(organization_id,type,u
 select throws_ok($sql$insert into public.digital_channels(organization_id,type,url) values ('22000000-0000-4000-8000-000000000001','','https://example.test')$sql$,'23514',null,'Type invalido recusado');
 select throws_ok($sql$insert into public.digital_channels(organization_id,type,url) values ('22000000-0000-4000-8000-000000000001','site','https://example.test')$sql$,'23514',null,'Type invalido recusado');
 select throws_ok($sql$insert into public.digital_channels(organization_id,type,url) values ('22000000-0000-4000-8000-000000000001','SITE ','https://example.test')$sql$,'23514',null,'Type invalido recusado');
-select throws_ok($sql$insert into public.digital_channels(organization_id,type,url) values ('22000000-0000-4000-8000-000000000001','INSTAGRAM','https://example.test')$sql$,'23514',null,'Type invalido recusado');
+select throws_ok($sql$insert into public.digital_channels(organization_id,type,url) values ('22000000-0000-4000-8000-000000000001','UNKNOWN_CHANNEL','https://example.test')$sql$,'23514',null,'Type fora do conjunto vigente recusado');
 select throws_ok($sql$insert into public.digital_channels(organization_id,type,url) values ('22000000-0000-4000-8000-000000000001','SITE','')$sql$,'23514',null,'URL invalida recusada');
 select throws_ok($sql$insert into public.digital_channels(organization_id,type,url) values ('22000000-0000-4000-8000-000000000001','SITE','http://example.test')$sql$,'23514',null,'URL invalida recusada');
 select throws_ok($sql$insert into public.digital_channels(organization_id,type,url) values ('22000000-0000-4000-8000-000000000001','SITE','javascript:alert(1)')$sql$,'23514',null,'URL invalida recusada');

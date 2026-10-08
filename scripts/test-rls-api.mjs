@@ -95,11 +95,20 @@ try {
     let companies = [];
     if (isAdmin || memberships.length > 0) {
       let query = client.from("organizations").select("id, name").order("name").order("id");
-      if (!isAdmin) query = query.in("id", memberships.map(member => member.organization_id));
+      // Admin global pode ver empresas preexistentes. Busque suas fixtures por ID,
+      // sem depender do limite de pagina ou da quantidade total de empresas.
+      if (isAdmin) query = query.in("id", [orgA, orgB]);
+      else query = query.in("id", memberships.map(member => member.organization_id));
       companies = success(await query);
     }
     assert.deepEqual(companies.map(company => company.id).sort(), [...expected].sort());
     assert.ok(companies.every(company => company.name.startsWith(`TESTE API ${runId}`)));
+    if (!isAdmin) {
+      // Consulta sem filtro: um vazamento para B ou dados preexistentes deve falhar,
+      // inclusive para o usuario sem vinculo, que nao consulta no fluxo acima.
+      const directlyVisible = success(await client.from("organizations").select("id"));
+      assert.deepEqual(directlyVisible.map(company => company.id).sort(), [...expected].sort());
+    }
   }
   passed("Etapa 05: descoberta de empresas para A, B, múltiplos, sem vínculo e admin sem membership");
   assert.deepEqual(success(await users.b.client.from("organizations").select("id, name").eq("id", orgA)), []);

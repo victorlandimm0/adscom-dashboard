@@ -113,6 +113,16 @@ Grants anteriores de PUBLIC, anon e authenticated são removidos **apenas dessas
 
 ## Ambiente local e migrations
 
+### Política de ambientes para desenvolvimento
+
+O desenvolvimento manual usa **Next.js em localhost → Supabase local**, com `NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321` e a Publishable Key da instância local em `.env.local`, ignorado pelo Git. Os testes automatizados também usam exclusivamente Supabase local. O ambiente implantado deve receber a configuração do Supabase remoto explicitamente no deploy; o projeto remoto não é o destino do `npm run dev` normal.
+
+Após alterar `NEXT_PUBLIC_*`, encerre o processo anterior e inicie novamente `npm run dev`. Não execute as suítes integradas simultaneamente ao servidor de desenvolvimento: elas compartilham artefatos do Next.js.
+
+Para a revisão manual da Etapa 11C.2.1, foram preparados dados locais descartáveis e independentes do remoto: `admin-local@adscom.test` com ADMIN_ADSCOM, Empresa A Local com Unidade Águas Claras 01, Empresa B Local e `cliente-a-local@adscom.test` vinculado somente à Empresa A Local. O estado inicial não possui canais digitais. Esses registros são dados de desenvolvimento manual, não fixtures automatizadas; suas senhas exclusivas ficam fora do repositório.
+
+**O vínculo da Supabase CLI com o projeto remoto é independente do `.env.local`.** Portanto, comandos `--linked` continuam exigindo revisão explícita do destino e autorização para a operação remota.
+
 Pré-requisitos: Node conforme README e Docker Desktop com contêineres Linux instalado/em execução. A CLI já está nas dependências de desenvolvimento; `npm ci` a instala. Não precisa fazer login no Supabase para testes locais. Os comandos abaixo criam/iniciam contêineres e podem baixar imagens; não são comandos de implantação remota.
 
 ```sh

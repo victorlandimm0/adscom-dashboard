@@ -1,5 +1,11 @@
 # Desenho técnico de Presença Digital — Etapas 11B.1 e 11B.1.1
 
+## Decisão vigente — Etapa 11C.2.1 (05/10/2026)
+
+A Presença Digital inicial aceita exatamente oito tipos: SITE, WHATSAPP, GOOGLE_BUSINESS_PROFILE, INSTAGRAM, FACEBOOK, TIKTOK, LINKEDIN e YOUTUBE. Labels: Site, WhatsApp, Perfil da Empresa no Google, Instagram, Facebook, TikTok, LinkedIn e YouTube. Todos são cadastros manuais, institucionais ou locais, sem verificação externa, propriedade comprovada, integração, autenticação, sincronização ou monitoramento. Todos usam a mesma validação estrutural HTTPS, sem whitelist de domínio e sem acesso de rede ao destino. Type continua imutável; edição somente de unidade/URL, sem exclusão ou arquivamento.
+
+Esta decisão substitui o recorte anterior de três tipos. Os registros de etapas anteriores abaixo preservam seu contexto histórico, não restringem o conjunto vigente. A migration incremental `20261005000100_digital_channels_social_types.sql` substitui somente `digital_channels_type_check`; a migration histórica permanece intacta. Migration aplicada somente no Supabase local; permanece pendente no remoto. A única alteração remota autorizada foi a limpeza dos dois canais manuais da revisão anterior, documentada em administracao.md.
+
 ## Implementação local — Etapa 11B.2 (03/10/2026)
 
 Contrato abaixo implementado em `supabase/migrations/20261003000100_digital_channels_foundation.sql`, aplicada **somente no Supabase local** por `npm run db:migrate` (`migration up --local`). Pré-voo: main, HEAD ba8c6c7, working tree limpo; banco local com as duas migrations anteriores, UNIQUE de locations confirmada e digital_channels ausente. Nenhum reset, operação remota ou mudança nas migrations históricas.

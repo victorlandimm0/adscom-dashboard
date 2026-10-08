@@ -125,7 +125,7 @@ export async function testDigitalChannels({ users, orgA, orgB, anonymous, organi
   assert.equal((await table().update({ url: boundary + "x" }).eq("id", local.id)).error?.code, "23514");
   assert.deepEqual(await read(local.id), current);
   passed("X: fronteiras 2048/2049");
-  for (const type of ["", "site", "SITE ", "INSTAGRAM"]) assert.equal((await table().insert({ ...base, type })).error?.code, "23514");
+  for (const type of ["", "site", "SITE ", "UNKNOWN_CHANNEL"]) assert.equal((await table().insert({ ...base, type })).error?.code, "23514");
   for (const field of ["organization_id", "type", "url"]) assert.equal((await table().insert({ ...base, [field]: null })).error?.code, "23502");
   assert.equal(success(await table().select("id").in("organization_id", [orgA, orgB, orgC])).length, 8, "Tentativas rejeitadas nao criaram canais");
   passed("constraints adicionais e persistencia apos tentativas negadas");

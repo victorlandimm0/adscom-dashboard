@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/admin/access";
-import { readCompanyName, readMembership } from "@/lib/admin/validation";
+import { readCompanyName, readMembership, readChannelType, readChannelUrl, readChannelLocation } from "@/lib/admin/validation";
 import { isOrganizationId } from "@/lib/organizations/selection";
 
 export async function createOrganization(formData: FormData): Promise<void> {
@@ -90,4 +90,56 @@ export async function renameLocation(organizationId: string, formData: FormData)
   if (!result.data.length) redirect(`${path}?status=unavailable`);
   revalidatePath(path);
   redirect(`${path}?status=location-updated`);
+}
+
+async function channelContext(organizationId: string) {
+  const { supabase } = await requireAdmin();
+  if (!isOrganizationId(organizationId)) redirect("/admin/empresas?status=invalid-id");
+  const organization = await supabase.from("organizations").select("id").eq("id", organizationId).maybeSingle();
+  if (organization.error || !organization.data) redirect("/admin/empresas?status=unavailable");
+  return { supabase, organizationId: organization.data.id, path: `/admin/empresas/${organization.data.id}` };
+}
+
+async function channelFields(context: Awaited<ReturnType<typeof channelContext>>, formData: FormData) {
+  const { supabase, organizationId, path } = context;
+  const url = readChannelUrl(formData.get("url"));
+  if (!url) redirect(`${path}?status=invalid-channel-url`);
+  const locationId = readChannelLocation(formData.get("location_id"));
+  if (locationId === undefined) redirect(`${path}?status=invalid-id`);
+  if (locationId !== null) {
+    const location = await supabase.from("locations").select("id")
+      .eq("id", locationId).eq("organization_id", organizationId).maybeSingle();
+    if (location.error || !location.data) redirect(`${path}?status=unavailable`);
+  }
+  return { url, location_id: locationId };
+}
+
+export async function createDigitalChannel(organizationId: string, formData: FormData): Promise<void> {
+  const context = await channelContext(organizationId);
+  const { supabase, path } = context;
+  const type = readChannelType(formData.get("type"));
+  if (!type) redirect(`${path}?status=invalid-channel-type`);
+  const fields = await channelFields(context, formData);
+  const result = await supabase.from("digital_channels")
+    .insert({ organization_id: context.organizationId, type, ...fields }).select("id").single();
+  if (result.error) redirect(`${path}?status=${result.error.code === "23503" ? "unavailable" : "failed"}`);
+  revalidatePath(path);
+  redirect(`${path}?status=channel-created`);
+}
+
+export async function updateDigitalChannel(organizationId: string, formData: FormData): Promise<void> {
+  const context = await channelContext(organizationId);
+  const { supabase, path } = context;
+  const channelId = formData.get("channel_id");
+  if (!isOrganizationId(channelId)) redirect(`${path}?status=invalid-id`);
+  const channel = await supabase.from("digital_channels").select("id")
+    .eq("id", channelId).eq("organization_id", context.organizationId).maybeSingle();
+  if (channel.error || !channel.data) redirect(`${path}?status=unavailable`);
+  const fields = await channelFields(context, formData);
+  const result = await supabase.from("digital_channels").update(fields)
+    .eq("id", channelId).eq("organization_id", context.organizationId).select("id");
+  if (result.error) redirect(`${path}?status=${result.error.code === "23503" ? "unavailable" : "failed"}`);
+  if (result.data.length !== 1) redirect(`${path}?status=unavailable`);
+  revalidatePath(path);
+  redirect(`${path}?status=channel-updated`);
 }

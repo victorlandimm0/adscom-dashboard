@@ -1,5 +1,11 @@
 # Perfil da empresa, perfil da unidade e presença digital — Etapas 11A e 11A.1
 
+## Decisão vigente — Etapa 11C.2.1 (05/10/2026)
+
+A Presença Digital inicial aceita exatamente oito tipos: SITE, WHATSAPP, GOOGLE_BUSINESS_PROFILE, INSTAGRAM, FACEBOOK, TIKTOK, LINKEDIN e YOUTUBE. Labels: Site, WhatsApp, Perfil da Empresa no Google, Instagram, Facebook, TikTok, LinkedIn e YouTube. Todos são cadastros manuais, institucionais ou locais, sem verificação externa, propriedade comprovada, integração, autenticação, sincronização ou monitoramento. Todos usam a mesma validação estrutural HTTPS, sem whitelist de domínio e sem acesso de rede ao destino. Type continua imutável; edição somente de unidade/URL, sem exclusão ou arquivamento.
+
+Esta decisão substitui o recorte anterior de três tipos. Os registros de etapas anteriores abaixo preservam seu contexto histórico, não restringem o conjunto vigente. A migration incremental `20261005000100_digital_channels_social_types.sql` substitui somente `digital_channels_type_check`; a migration histórica permanece intacta. Migration aplicada somente no Supabase local; permanece pendente no remoto. A única alteração remota autorizada foi a limpeza dos dois canais manuais da revisão anterior, documentada em administracao.md.
+
 Data: 03/10/2026. Direção arquitetural aprovada e decisões humanas incorporadas na 11A.1; documento pronto para revisão final, sem implementação. Base conferida: branch `main`, HEAD `adf27da` (`feat: add admin location management`). Na 11A o working tree estava limpo; no início da 11A.1 continha somente este documento não rastreado. Somente ele é atualizado.
 
 ## 1. Objetivo e limites
@@ -77,8 +83,8 @@ O desenho não exige relação sequencial Empresa → Unidade → Presença para
 | CEP | Parte do endereço local, texto opcional; país explícito quando o endereço entrar | Preservar zeros; não assumir formato brasileiro universal nem preencher dado ausente | Futuro próximo |
 | Cidade | Parte do endereço local, sem duplicação institucional | Sede não descreve todas as operações; cidade não é necessariamente toda a área atendida | Futuro próximo |
 | Estado/UF | Parte do endereço local com país | UF brasileira não é formato universal; não deduzir por configuração do servidor | Futuro próximo |
-| Instagram | Canal institucional ou local, declarado manualmente | Pode ser compartilhado pela marca ou específico por unidade; URL não comprova acesso à conta | Adiado; fora do MVP inicial |
-| Facebook | Canal institucional ou local | Mesma separação de escopos; não misturar página pública e conexão autenticada | Adiado; fora do MVP inicial |
+| Instagram | Canal institucional ou local, declarado manualmente | Pode ser compartilhado pela marca ou específico por unidade; URL não comprova acesso à conta | Incluído como cadastro manual na 11C.2.1 |
+| Facebook | Canal institucional ou local | Mesma separação de escopos; não misturar página pública e conexão autenticada | Incluído como cadastro manual na 11C.2.1 |
 | GOOGLE_BUSINESS_PROFILE | Canal Perfil da Empresa no Google, pertencente à organization e associado a location quando local; URL é atributo inicial | Canal, URL pública, identificador externo e conexão OAuth são conceitos diferentes. Preservar identidade do canal ao evoluir para integração | MVP como canal manual, sem verificação externa |
 | Horário de funcionamento | Estrutura local própria quando houver fluxo; atendimento institucional distinto só se requerido | Texto único perde turnos, feriados, exceções e timezone; horário físico não é disponibilidade de todos os canais | Futuro próximo, fora do primeiro corte |
 
@@ -111,7 +117,7 @@ Proposta de `digital_channels`, inicialmente registros manuais. O canal tem iden
 - location_id ausente significa **canal institucional desta organização**, nunca “todas as unidades”, erro de seleção ou recurso órfão.
 - location_id presente significa **canal daquela unidade**, validado pelo par organization/location no banco e na aplicação.
 - Escopo e titular são imutáveis na edição comum: corrigir URL não move canal entre unidades ou empresas. Uma mudança de atribuição precisará de fluxo específico futuro.
-- Tipos conceituais iniciais aprovados: `SITE`, `WHATSAPP` e `GOOGLE_BUSINESS_PROFILE` (na interface: “Perfil da Empresa no Google”). Instagram/Facebook estão fora do MVP. Novos tipos poderão ser adicionados por incremento explícito, sem redesenhar titularidade, identidade ou origem; não criar enum, tabela de tipos ou código nesta etapa.
+- Tipos iniciais vigentes: SITE, WHATSAPP, GOOGLE_BUSINESS_PROFILE, INSTAGRAM, FACEBOOK, TIKTOK, LINKEDIN e YOUTUBE. Novos tipos poderão ser adicionados por incremento explícito, sem redesenhar titularidade, identidade ou origem; não criar enum, tabela de tipos ou código nesta etapa.
 - Admitir 0..N canais por titular, inclusive vários do mesmo tipo por organization ou location. Não recomendar UNIQUE(organization_id, type), UNIQUE(organization_id, location_id, type) ou unicidade global de URL como limitação artificial. A interface deve listar todos, sem escolher silenciosamente um “principal”. Rótulos só serão considerados se necessários para distinguir canais semelhantes.
 - Não duplicar link institucional em todas as locations. A futura leitura apresenta “Institucional” e “Desta unidade” separadamente, sem afirmar que canal institucional foi verificado para cada unidade.
 - URL é um dado, não uma credencial: validar formato e esquemas permitidos, rejeitar credenciais embutidas e links com tokens secretos. Não buscar URLs no servidor nem validar disponibilidade por requisição externa no MVP.
@@ -185,7 +191,7 @@ NFC institucional funciona sem location; placa de avaliações de uma operação
 
 O canal pode ser candidato a destino, mas não deve ser seguido automaticamente ao editar sua URL. Recomenda-se mudança explícita da configuração do dispositivo; ao introduzir eventos, registrar a versão/atribuição/destino efetivos da interação. Assim, alterar destino ou futura associação local não reinterpreta eventos antigos. Não criar eventos, snapshots ou tabelas de versões agora.
 
-Destinos futuros podem incluir Perfil da Empresa no Google, WhatsApp, site, Instagram, agendamento e outros. Essa lista de compatibilidade não amplia os três tipos aprovados para o primeiro MVP de Presença.
+Destinos futuros podem incluir Perfil da Empresa no Google, WhatsApp, site, Instagram, agendamento e outros. Essa lista não altera o conjunto de oito tipos vigente na 11C.2.1.
 
 O endpoint público exigirá desenho restrito próprio; não liberar tabelas privadas para anônimo nem aceitar destino arbitrário da requisição. Disponibilidade, abuso, privacidade, retenção e significado de interação versus pessoa única são decisões da etapa NFC, sem implementação aqui.
 
@@ -205,7 +211,7 @@ No futuro, disponibilidade de avaliações virá do módulo correspondente; NFC 
 
 ### MVP próximo: inventário manual mínimo
 
-Reutilizar nomes e identidades existentes. O MVP conceitual aprovado é inventário manual de canais digitais: SITE, WHATSAPP e GOOGLE_BUSINESS_PROFILE. Criar futuramente somente o necessário para identidade do canal, tipo, URL como atributo, tenant, escopo institucional/local e timestamps. Nenhum canal ou perfil é obrigatório; empresa sem unidade pode ter canais institucionais e usar Presença. Admitir múltiplos canais do mesmo tipo sem unicidade artificial por empresa/unidade.
+Reutilizar nomes e identidades existentes. O MVP conceitual aprovado é inventário manual de canais digitais: SITE, WHATSAPP, GOOGLE_BUSINESS_PROFILE, INSTAGRAM, FACEBOOK, TIKTOK, LINKEDIN e YOUTUBE. Criar futuramente somente o necessário para identidade do canal, tipo, URL como atributo, tenant, escopo institucional/local e timestamps. Nenhum canal ou perfil é obrigatório; empresa sem unidade pode ter canais institucionais e usar Presença. Admitir múltiplos canais do mesmo tipo sem unicidade artificial por empresa/unidade.
 
 ADMIN_ADSCOM cadastra/corrige/atualiza canais dentro do contexto da empresa e, quando local, da unidade validada. CLIENTE futuramente consulta, sem criar, editar ou remover, com origem manual explícita. Institucional e local ficam separados; não há agregação de métricas nem cópia automática de valores. A primeira leitura pode agrupar por unidade sem criar preferência global de unidade ou implementar a Etapa 10B. Se o volume exigir navegação/paginação, fechar isso como escopo explícito dessa tela.
 
@@ -213,7 +219,7 @@ Perfis complementares completos não são pré-requisito para um inventário út
 
 ### Futuro próximo
 
-Descrição/segmento, contatos adicionais, endereço completo, Instagram/Facebook, rótulos e eventual canal principal somente quando houver caso de uso concreto; horários com timezone/exceções em incremento próprio. Perfis completos, CNPJ, razão social e demais dados fiscais permanecem adiados para não construir CRM nem inflar o núcleo. A retirada de canais também fica adiada: não há exclusão física ou arquivamento no MVP. Quando necessária, estudar explicitamente arquivar, desativar ou substituir preservando histórico/dependências, sem escolher mecanismo agora. O ciclo de vida de unidades permanece igualmente separado.
+Descrição/segmento, contatos adicionais, endereço completo, rótulos e eventual canal principal somente quando houver caso de uso concreto; horários com timezone/exceções em incremento próprio. Perfis completos, CNPJ, razão social e demais dados fiscais permanecem adiados para não construir CRM nem inflar o núcleo. A retirada de canais também fica adiada: não há exclusão física ou arquivamento no MVP. Quando necessária, estudar explicitamente arquivar, desativar ou substituir preservando histórico/dependências, sem escolher mecanismo agora. O ciclo de vida de unidades permanece igualmente separado.
 
 ### Futuro distante ou com escopo independente
 
@@ -238,7 +244,7 @@ Integrações Google/Meta, OAuth e sincronização, importação de avaliações
 
 ## 15. Perguntas para decisão humana
 
-Fechadas na 11A.1: inventário manual como primeiro valor, três tipos iniciais, Instagram/Facebook fora do MVP, ADMIN como editor e CLIENTE como leitor, organization obrigatória/location opcional, múltiplos canais do mesmo tipo, ausência de exclusão física/arquivamento e adiamento dos perfis completos. Origem MANUAL não significa EXTERNAL ou DERIVED. Essas decisões não permanecem pendentes.
+Fechadas na 11A.1: inventário manual como primeiro valor, três tipos iniciais, Instagram/Facebook fora do MVP, ADMIN como editor e CLIENTE como leitor, organization obrigatória/location opcional, múltiplos canais do mesmo tipo, ausência de exclusão física/arquivamento e adiamento dos perfis completos. Origem MANUAL não significa EXTERNAL ou DERIVED. O recorte de tipos foi ampliado pela 11C.2.1; as demais decisões permanecem.
 
 Permanecem apenas perguntas para escopos futuros, sem bloquear o inventário aprovado:
 

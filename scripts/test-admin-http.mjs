@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { testAdminLocations } from "./test-admin-locations-http.mjs";
+import { testAdminDigitalChannels } from "./test-admin-digital-channels-http.mjs";
 
 export async function testAdmin({ users, orgA, orgB, sql, session, login, formFields }) {
   const name = `TESTE ADMIN ${randomUUID()}`;
@@ -127,6 +128,7 @@ export async function testAdmin({ users, orgA, orgB, sql, session, login, formFi
       sql(`insert into public.user_global_roles(user_id,role) values ('${users.admin2.id}','ADMIN_ADSCOM');`);
     }
     await testAdminLocations({ users, orgA, orgB, sql, session, login, formFields, admin, post, expectRedirect });
+    await testAdminDigitalChannels({ users, orgA, orgB, sql, session, login, formFields, admin, post, expectRedirect });
     const adminHome = await admin.request("/admin");
     expectRedirect(await admin.request("/admin", formFields(adminHome.html, ">Sair</button>")), "/login");
     assert.equal(admin.jar.has("adscom_organization"), false);

@@ -6,6 +6,9 @@ import { selectOrganization } from "@/app/(cliente)/app/actions";
 import { createLocation, renameLocation, linkMember, removeMember } from "../../actions";
 import { AdminFeedback } from "../../feedback";
 import { LocationSubmit } from "../../location-submit";
+import { createDigitalChannel, updateDigitalChannel } from "../../actions";
+import { channelLabels } from "@/lib/admin/validation";
+import { completeList } from "@/lib/admin/complete-list";
 
 export default async function CompanyPage({ params, searchParams }: {
   params: Promise<{ id: string }>; searchParams: Promise<{ status?: string }>;
@@ -20,8 +23,13 @@ export default async function CompanyPage({ params, searchParams }: {
   const company = result.data;
   const members = await supabase.from("organization_members").select("user_id, role, created_at")
     .eq("organization_id", company.id).order("created_at").order("user_id");
-  const locations = await supabase.from("locations").select("id, name")
-    .eq("organization_id", company.id).order("name").order("id");
+  const locations = await completeList((from, to) => supabase.from("locations").select("id, name", { count: "exact" })
+    .eq("organization_id", company.id).order("name").order("id").range(from, to));
+  const channels = await completeList((from, to) => supabase.from("digital_channels")
+    .select("id, type, location_id, url", { count: "exact" })
+    .eq("organization_id", company.id).order("created_at").order("id").range(from, to));
+  const locationOptions = <><option value="">Institucional — nenhuma unidade</option>{locations.data.map(location =>
+    <option key={location.id} value={location.id}>{location.name}</option>)}</>;
   return (
     <>
       <Link href="/admin/empresas" className="text-sm font-medium text-teal-800 underline">Voltar às empresas</Link>
@@ -57,6 +65,44 @@ export default async function CompanyPage({ params, searchParams }: {
           <input id="location-name" name="name" required maxLength={160} className="w-full rounded-lg border border-slate-300 px-3 py-2" />
           <LocationSubmit>Cadastrar unidade</LocationSubmit>
         </form>
+      </section>
+      <section aria-labelledby="digital-channels" className="mt-8">
+        <h2 id="digital-channels" className="text-xl font-semibold">Presença digital</h2>
+        <p className="mt-2 text-sm text-slate-600">Informações cadastradas manualmente, sem verificação externa.</p>
+        {locations.error && <p role="alert" className="mt-4 text-red-700">Não foi possível carregar as unidades para os canais. Atualize a página para cadastrar ou editar.</p>}
+        {channels.error ? <p role="alert" className="mt-4 text-red-700">Não foi possível carregar os canais. Tente novamente.</p>
+          : channels.data.length === 0 ? <p className="mt-4 text-slate-600">Nenhum canal digital cadastrado.</p>
+          : <ul className="mt-4 space-y-4">{channels.data.map(channel => {
+            const location = locations.data.find(item => item.id === channel.location_id);
+            const editable = !locations.error && (channel.location_id === null || !!location);
+            return <li key={channel.id} className="rounded-xl border border-slate-200 bg-white p-6">
+              <h3 className="font-medium">{channelLabels[channel.type as keyof typeof channelLabels] ?? "Canal digital"}</h3>
+              <p className="mt-2 break-words text-sm">{channel.location_id === null ? "Institucional" : `Local — ${location?.name ?? "unidade indisponível"}`}</p>
+              <p className="mt-2 break-all text-sm text-slate-600">{channel.url}</p>
+              {editable ? <form action={updateDigitalChannel.bind(null, company.id)} className="mt-4 space-y-3">
+                <input type="hidden" name="channel_id" value={channel.id} />
+                <label htmlFor={`channel-location-${channel.id}`} className="block text-sm font-medium">Unidade</label>
+                <select id={`channel-location-${channel.id}`} name="location_id" defaultValue={channel.location_id ?? ""} className="w-full rounded-lg border border-slate-300 px-3 py-2">{locationOptions}</select>
+                <label htmlFor={`channel-url-${channel.id}`} className="block text-sm font-medium">URL</label>
+                <input id={`channel-url-${channel.id}`} name="url" type="url" required defaultValue={channel.url} className="w-full rounded-lg border border-slate-300 px-3 py-2" />
+                <LocationSubmit>Salvar alterações</LocationSubmit>
+              </form> : <p role="alert" className="mt-4 text-red-700">Edição indisponível. Atualize a página.</p>}
+            </li>;
+          })}</ul>}
+        {!locations.error && <form action={createDigitalChannel.bind(null, company.id)} className="mt-4 space-y-3 rounded-xl border border-slate-200 bg-white p-6">
+          <h3 className="font-medium">Cadastrar canal</h3>
+          <label htmlFor="channel-type" className="block text-sm font-medium">Tipo</label>
+          <select id="channel-type" name="type" required defaultValue="" className="w-full rounded-lg border border-slate-300 px-3 py-2">
+            <option value="" disabled>Selecione</option>
+            {Object.entries(channelLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select>
+          <label htmlFor="channel-location" className="block text-sm font-medium">Unidade</label>
+          <select id="channel-location" name="location_id" defaultValue="" className="w-full rounded-lg border border-slate-300 px-3 py-2">{locationOptions}</select>
+          <label htmlFor="channel-url" className="block text-sm font-medium">URL</label>
+          <input id="channel-url" name="url" type="url" required aria-describedby="channel-url-help" className="w-full rounded-lg border border-slate-300 px-3 py-2" />
+          <p id="channel-url-help" className="text-sm text-slate-600">Use uma URL HTTPS válida, sem espaços ou credenciais, com até 2048 caracteres. Informe o endereço do canal ou perfil correspondente. O cadastro não verifica o destino.</p>
+          <LocationSubmit>Cadastrar canal</LocationSubmit>
+        </form>}
       </section>
       <section aria-labelledby="link-member" className="mt-8 rounded-xl border border-slate-200 bg-white p-6">
         <h2 id="link-member" className="text-xl font-semibold">Vincular usuário existente</h2>
